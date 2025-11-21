@@ -1,2 +1,0 @@
-# ECHEC
-des bisous
