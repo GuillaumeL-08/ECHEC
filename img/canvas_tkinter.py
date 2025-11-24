@@ -216,12 +216,12 @@ class Chess_UI:
             if self.human_white:
                 # C'est un humain : Chess_UI ne joue pas, HumanController s'en charge
                 return
-            self.board.push_san(self.Joueur_Blanc.coup())
+            self.board.push_san(self.Joueur_Blanc.coup(self.board))
         else:
             # Tour des noirs
             if self.human_black:
                 # C'est un humain : Chess_UI ne joue pas, HumanController s'en charge
                 return
-            self.board.push_san(self.Joueur_Noir.coup())
+            self.board.push_san(self.Joueur_Noir.coup(self.board))
             
         self.update_board() #Mise à jour de l'échiquier
