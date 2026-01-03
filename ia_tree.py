@@ -280,7 +280,40 @@ class TreeIA:
             return True
         return False
 
-    def minimax(self, depth, alpha, beta, maximizing):
+    def minimax(self, depth, alpha, beta, maximizing_player):
+        if depth == 0 or self.board.is_game_over():
+            return self.evaluate() + random.uniform(-0.1, 0.1), None
+
+        if maximizing_player:
+            max_eval = -10**9
+            best_move = None
+            for move in self.board.legal_moves:
+                self.board.push(move)
+                # Évaluer la réponse optimale de l'adversaire
+                eval_adversary, _ = self.minimax(depth - 1, alpha, beta, False)
+                # L'IA veut minimiser l'avantage de l'adversaire
+                if eval_adversary > max_eval:
+                    max_eval = eval_adversary
+                    best_move = move
+                self.board.pop()
+                alpha = max(alpha, max_eval)
+                if beta <= alpha:
+                    break
+            return max_eval, best_move
+        else:
+            min_eval = 10**9
+            best_move = None
+            for move in self.board.legal_moves:
+                self.board.push(move)
+                eval_adversary, _ = self.minimax(depth - 1, alpha, beta, True)
+                if eval_adversary < min_eval:
+                    min_eval = eval_adversary
+                    best_move = move
+                self.board.pop()
+                beta = min(beta, min_eval)
+                if beta <= alpha:
+                    break
+            return min_eval, best_move
         # Vérifier la mémoire transposition avec clé unique par IA
         board_key = (self.board.fen(), depth, maximizing, id(self))
         if board_key in self.transposition_table:
