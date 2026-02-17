@@ -1,142 +1,256 @@
 import json
 import os
+import gzip
 import random
+import tempfile
 from datetime import datetime
+from collections import OrderedDict
 from typing import Dict, List, Tuple, Optional
 import chess
-import chess.pgn
+
+
+class BoundedDict:
+    """Dictionnaire LRU borné pour éviter la fuite mémoire après 10h."""
+
+    def __init__(self, max_size: int = 200_000):
+        self.max_size = max_size
+        self._d = OrderedDict()
+
+    def get(self, key, default=None):
+        if key in self._d:
+            self._d.move_to_end(key)
+            return self._d[key]
+        return default
+
+    def __setitem__(self, key, value):
+        if key in self._d:
+            self._d.move_to_end(key)
+        else:
+            if len(self._d) >= self.max_size:
+                self._d.popitem(last=False)
+        self._d[key] = value
+
+    def __contains__(self, key):
+        return key in self._d
+
+    def __len__(self):
+        return len(self._d)
+
+    def items(self):
+        return self._d.items()
+
+    def to_dict(self) -> dict:
+        return dict(self._d)
+
+    @classmethod
+    def from_dict(cls, d: dict, max_size: int = 200_000):
+        obj = cls(max_size)
+        for k, v in list(d.items())[-max_size:]:
+            obj._d[k] = v
+        return obj
+
 
 class LearningManager:
-    """Gère l'apprentissage par renforcement de l'IA d'échecs."""
-    
+    """Apprentissage par renforcement optimisé pour 10h d'entraînement."""
+
+    MAX_POSITIONS = 200_000
+    LR = 0.15
+    GAMMA = 0.92
+    EXPLORE_START = 0.25
+    EXPLORE_MIN = 0.02
+    EXPLORE_DECAY = 0.997
+
     def __init__(self, data_file: str = "ia_learning_data.json"):
-        self.data_file = data_file
-        self.position_values: Dict[str, float] = {}  # FEN -> valeur apprise
-        self.move_history: List[Dict] = []  # Historique des parties
-        self.current_game_moves: List[Tuple[str, str, float]] = []  # (FEN, move, score)
-        self.learning_rate = 0.1
-        self.exploration_rate = 0.2
-        self.discount_factor = 0.9
+        # BUG FIX: nom de fichier par défaut .json simple (cohérent avec ia_tree.py)
+        # Détecte automatiquement si un .gz ou .json existe déjà
+        if data_file.endswith('.gz'):
+            self.data_file = data_file
+        elif os.path.exists(data_file + '.gz'):
+            # Préfère le .gz s'il existe
+            self.data_file = data_file + '.gz'
+        else:
+            self.data_file = data_file  # .json simple
+
+        self.position_values: BoundedDict = BoundedDict(self.MAX_POSITIONS)
+        self.current_game_moves: List[Tuple[int, str, float]] = []
         self.games_played = 0
-        
-        self.load_learning_data()
-    
-    def load_learning_data(self):
-        """Charge les données d'apprentissage depuis le fichier JSON."""
-        if os.path.exists(self.data_file):
+        self.wins = 0
+        self.losses = 0
+        self.draws = 0
+        self.exploration_rate = self.EXPLORE_START
+
+        self._load()
+
+    # ------------------------------------------------------------------
+    # Persistance
+    # ------------------------------------------------------------------
+    def _load(self):
+        paths_to_try = [self.data_file]
+        # Essaie aussi l'autre format si disponible
+        if self.data_file.endswith('.gz'):
+            paths_to_try.append(self.data_file[:-3])
+        else:
+            paths_to_try.append(self.data_file + '.gz')
+
+        for path in paths_to_try:
+            if not os.path.exists(path):
+                continue
+            if os.path.getsize(path) == 0:
+                print(f"[Learning] Fichier vide ignoré: {path}")
+                os.remove(path)
+                continue
             try:
-                with open(self.data_file, 'r', encoding='utf-8') as f:
-                    data = json.load(f)
-                    self.position_values = data.get('position_values', {})
-                    self.move_history = data.get('move_history', [])
-                    self.games_played = data.get('games_played', 0)
-                    print(f"Données d'apprentissage chargées: {len(self.position_values)} positions, {self.games_played} parties")
+                if path.endswith('.gz'):
+                    with gzip.open(path, 'rt', encoding='utf-8') as f:
+                        data = json.load(f)
+                else:
+                    with open(path, 'r', encoding='utf-8') as f:
+                        raw = f.read().strip()
+                    # Protection contre du code collé après le JSON
+                    brace_end = raw.rfind('}')
+                    if brace_end == -1:
+                        raise ValueError("Pas de JSON valide")
+                    data = json.loads(raw[:brace_end + 1])
+
+                raw_pos = data.get('position_values', {})
+                bd = BoundedDict(self.MAX_POSITIONS)
+                for k, v in list(raw_pos.items())[-self.MAX_POSITIONS:]:
+                    bd._d[int(k)] = v
+                self.position_values = bd
+
+                self.games_played = data.get('games_played', 0)
+                self.wins = data.get('wins', 0)
+                self.losses = data.get('losses', 0)
+                self.draws = data.get('draws', 0)
+                self.exploration_rate = max(
+                    self.EXPLORE_MIN,
+                    self.EXPLORE_START * (self.EXPLORE_DECAY ** self.games_played)
+                )
+                print(f"[Learning] Chargé: {len(self.position_values)} positions, "
+                      f"{self.games_played} parties "
+                      f"(W:{self.wins} D:{self.draws} L:{self.losses})")
+                return
             except Exception as e:
-                print(f"Erreur lors du chargement des données: {e}")
-                self.position_values = {}
-                self.move_history = []
-                self.games_played = 0
-    
-    def save_learning_data(self):
-        """Sauvegarde les données d'apprentissage dans le fichier JSON."""
+                print(f"[Learning] Erreur chargement {path}: {e} — réinitialisation.")
+                try:
+                    os.remove(path)
+                except Exception:
+                    pass
+
+        print("[Learning] Démarrage à zéro.")
+
+    def _save(self):
         data = {
-            'position_values': self.position_values,
-            'move_history': self.move_history[-1000:],  # Garder seulement les 1000 dernières parties
+            'position_values': {str(k): v for k, v in self.position_values.items()},
             'games_played': self.games_played,
-            'last_updated': datetime.now().isoformat()
+            'wins': self.wins,
+            'losses': self.losses,
+            'draws': self.draws,
+            'last_updated': datetime.now().isoformat(),
         }
-        
+        # Sauvegarde atomique : écrire dans tmp puis renommer
+        tmp_path = self.data_file + '.tmp'
         try:
-            with open(self.data_file, 'w', encoding='utf-8') as f:
-                json.dump(data, f, indent=2, ensure_ascii=False)
-            print(f"Données d'apprentissage sauvegardées: {len(self.position_values)} positions")
+            if self.data_file.endswith('.gz'):
+                with gzip.open(tmp_path, 'wt', encoding='utf-8', compresslevel=6) as f:
+                    json.dump(data, f, separators=(',', ':'))
+            else:
+                with open(tmp_path, 'w', encoding='utf-8') as f:
+                    json.dump(data, f, indent=2, ensure_ascii=False)
+            os.replace(tmp_path, self.data_file)
+            print(f"[Learning] Sauvegardé: {len(self.position_values)} positions, "
+                  f"{self.games_played} parties.")
         except Exception as e:
-            print(f"Erreur lors de la sauvegarde des données: {e}")
-    
+            print(f"[Learning] Erreur sauvegarde: {e}")
+            try:
+                os.remove(tmp_path)
+            except Exception:
+                pass
+
+    # ------------------------------------------------------------------
+    # Interface jeu
+    # ------------------------------------------------------------------
     def start_new_game(self):
-        """Commence une nouvelle partie pour l'apprentissage."""
         self.current_game_moves = []
-    
-    def record_move(self, board: chess.Board, move: chess.Move, score: float):
-        """Enregistre un coup joué avec son score d'évaluation."""
-        fen = board.fen()
-        move_str = board.san(move)
-        self.current_game_moves.append((fen, move_str, score))
-    
+
+    def record_move(self, board: chess.Board, move: chess.Move, score: float,
+                    zobrist_key: Optional[int] = None):
+        if zobrist_key is None:
+            zobrist_key = hash(board.fen()) & 0xFFFFFFFFFFFFFFFF
+        self.current_game_moves.append((zobrist_key, board.san(move), float(score)))
+
     def end_game(self, result: str, final_board: chess.Board):
-        """Termine une partie et met à jour l'apprentissage."""
+        """Met à jour l'apprentissage et sauvegarde après CHAQUE partie."""
         self.games_played += 1
-        
-        # Calculer la récompense finale
-        if result == "1-0":  # Blanc gagne
+
+        if result == "1-0":
             final_reward = 1000.0
-        elif result == "0-1":  # Noir gagne
+            self.wins += 1
+        elif result == "0-1":
             final_reward = -1000.0
-        else:  # Nulle
+            self.losses += 1
+        else:
             final_reward = 0.0
-        
-        # Mettre à jour les valeurs des positions avec rétropropagation
-        self._update_position_values(final_reward)
-        
-        # Enregistrer la partie dans l'historique
-        game_data = {
-            'result': result,
-            'moves': self.current_game_moves,
-            'final_reward': final_reward,
-            'timestamp': datetime.now().isoformat()
-        }
-        self.move_history.append(game_data)
-        
-        # Sauvegarder périodiquement
-        if self.games_played % 10 == 0:
-            self.save_learning_data()
-    
-    def _update_position_values(self, final_reward: float):
-        """Met à jour les valeurs des positions par rétropropagation."""
-        # Récompense inversée pour les noirs
-        reward = final_reward
-        
-        # Parcourir les coups en ordre inverse pour la rétropropagation
-        for i, (fen, move_str, score) in enumerate(reversed(self.current_game_moves)):
-            # La récompense diminue avec le temps (discount factor)
-            discounted_reward = reward * (self.discount_factor ** i)
-            
-            # Mettre à jour la valeur de la position
-            if fen not in self.position_values:
-                self.position_values[fen] = score
-            
-            # Apprentissage: ajuster la valeur en fonction du résultat
-            old_value = self.position_values[fen]
-            new_value = old_value + self.learning_rate * (discounted_reward - old_value)
-            self.position_values[fen] = new_value
-    
-    def get_learned_position_value(self, fen: str) -> Optional[float]:
-        """Retourne la valeur apprise pour une position donnée."""
-        return self.position_values.get(fen)
-    
-    def get_position_value_with_learning(self, board: chess.Board, base_score: float) -> float:
-        """Combine le score de base avec la valeur apprise."""
-        fen = board.fen()
-        learned_value = self.get_learned_position_value(fen)
-        
-        if learned_value is not None:
-            # Pondérer entre le score de base et la valeur apprise
-            weight = min(0.3, len(self.current_game_moves) * 0.01)  # Plus de confiance avec l'expérience
-            return base_score * (1 - weight) + learned_value * weight
-        
+            self.draws += 1
+
+        # Reward shaping : signal intermédiaire basé sur le matériel final
+        mat = self._material_eval(final_board)
+        shaped_reward = final_reward + mat * 0.1
+
+        self._backpropagate(shaped_reward)
+
+        # Décroissance de l'exploration
+        self.exploration_rate = max(
+            self.EXPLORE_MIN,
+            self.exploration_rate * self.EXPLORE_DECAY
+        )
+
+        # BUG FIX: sauvegarder après CHAQUE partie (plus de condition % N)
+        self._save()
+
+    def _material_eval(self, board: chess.Board) -> float:
+        VALS = {chess.PAWN: 100, chess.KNIGHT: 320, chess.BISHOP: 330,
+                chess.ROOK: 500, chess.QUEEN: 900}
+        score = 0.0
+        for pt, val in VALS.items():
+            score += val * (len(board.pieces(pt, chess.WHITE)) -
+                            len(board.pieces(pt, chess.BLACK)))
+        return score
+
+    def _backpropagate(self, final_reward: float):
+        for i, (zkey, _, base_score) in enumerate(reversed(self.current_game_moves)):
+            discounted = final_reward * (self.GAMMA ** i)
+            old = self.position_values.get(zkey, base_score)
+            self.position_values[zkey] = old + self.LR * (discounted - old)
+
+    # ------------------------------------------------------------------
+    # Utilisation pendant la recherche
+    # ------------------------------------------------------------------
+    def get_position_value_with_learning(self, board: chess.Board, base_score: float,
+                                          zobrist_key: Optional[int] = None) -> float:
+        if zobrist_key is None:
+            zobrist_key = hash(board.fen()) & 0xFFFFFFFFFFFFFFFF
+        learned = self.position_values.get(zobrist_key)
+        if learned is not None:
+            weight = min(0.40, self.games_played * 0.002)
+            return base_score * (1.0 - weight) + learned * weight
         return base_score
-    
+
     def should_explore(self) -> bool:
-        """Détermine si l'IA doit explorer (jouer un coup différent) ou exploiter."""
-        # Moins d'exploration avec l'expérience
-        adjusted_exploration = self.exploration_rate * (0.95 ** self.games_played)
-        return random.random() < adjusted_exploration
-    
-    def get_learning_stats(self) -> Dict:
-        """Retourne des statistiques sur l'apprentissage."""
+        return random.random() < self.exploration_rate
+
+    def get_learning_stats(self) -> dict:
+        total = max(1, self.games_played)
         return {
             'games_played': self.games_played,
             'positions_learned': len(self.position_values),
-            'recent_games': len(self.move_history),
-            'exploration_rate': self.exploration_rate * (0.95 ** self.games_played)
+            'wins': self.wins,
+            'draws': self.draws,
+            'losses': self.losses,
+            'win_rate': round(self.wins / total, 3),
+            'exploration_rate': round(self.exploration_rate, 4),
         }
+
+    def force_save(self):
+        """Forcer une sauvegarde immédiate (appeler à la fermeture)."""
+        self._save()

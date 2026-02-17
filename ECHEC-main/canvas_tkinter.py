@@ -2,7 +2,7 @@ from tkinter import *
 from tkinter import ttk
 from PIL import Image, ImageTk
 from random import randint
-from chess import *
+from chess import * # type: ignore
 from time import sleep
 from human_controller import HumanController
 
@@ -64,18 +64,18 @@ class Chess_UI:
         """
         #Définition des images pour les pièces
         self.img_dict = {
-            'p': ImageTk.PhotoImage(Image.open('img/img/pion_noir.png').resize((100, 100))),
-            'b': ImageTk.PhotoImage(Image.open('img/img/fou_noir.png').resize((100, 100))),
-            'q': ImageTk.PhotoImage(Image.open('img/img/reine_noire.png').resize((100, 100))),
-            'k': ImageTk.PhotoImage(Image.open('img/img/roi_noir.png').resize((100, 100))),
-            'n': ImageTk.PhotoImage(Image.open('img/img/cavalier_noir.png').resize((100, 100))),
-            'r': ImageTk.PhotoImage(Image.open('img/img/tour_noire.png').resize((100, 100))),
-            'P': ImageTk.PhotoImage(Image.open('img/img/pion_blanc.png').resize((100, 100))),
-            'B': ImageTk.PhotoImage(Image.open('img/img/fou_blanc.png').resize((100, 100))),
-            'Q': ImageTk.PhotoImage(Image.open('img/img/reine_blanche.png').resize((100, 100))),
-            'K': ImageTk.PhotoImage(Image.open('img/img/roi_blanc.png').resize((100, 100))),
-            'N': ImageTk.PhotoImage(Image.open('img/img/cavalier_blanc.png').resize((100, 100))),
-            'R': ImageTk.PhotoImage(Image.open('img/img/tour_blanche.png').resize((100, 100))),
+            'p': ImageTk.PhotoImage(Image.open('ECHEC-main/img/pion_noir.png').resize((100, 100))),
+            'b': ImageTk.PhotoImage(Image.open('ECHEC-main/img/fou_noir.png').resize((100, 100))),
+            'q': ImageTk.PhotoImage(Image.open('ECHEC-main/img/reine_noire.png').resize((100, 100))),
+            'k': ImageTk.PhotoImage(Image.open('ECHEC-main/img/roi_noir.png').resize((100, 100))),
+            'n': ImageTk.PhotoImage(Image.open('ECHEC-main/img/cavalier_noir.png').resize((100, 100))),
+            'r': ImageTk.PhotoImage(Image.open('ECHEC-main/img/tour_noire.png').resize((100, 100))),
+            'P': ImageTk.PhotoImage(Image.open('ECHEC-main/img/pion_blanc.png').resize((100, 100))),
+            'B': ImageTk.PhotoImage(Image.open('ECHEC-main/img/fou_blanc.png').resize((100, 100))),
+            'Q': ImageTk.PhotoImage(Image.open('ECHEC-main/img/reine_blanche.png').resize((100, 100))),
+            'K': ImageTk.PhotoImage(Image.open('ECHEC-main/img/roi_blanc.png').resize((100, 100))),
+            'N': ImageTk.PhotoImage(Image.open('ECHEC-main/img/cavalier_blanc.png').resize((100, 100))),
+            'R': ImageTk.PhotoImage(Image.open('ECHEC-main/img/tour_blanche.png').resize((100, 100))),
         }
         self.root = root
         self.board = board
@@ -106,7 +106,7 @@ class Chess_UI:
 
         self.canvas = Canvas(self.mainframe, bg="black", width=board_width, height=board_height)
         self.canvas.grid(row=1, column=1, columnspan=8, rowspan=8)
-        self.bg_img = Image.open('img/img/plateau.png')
+        self.bg_img = Image.open('ECHEC-main/img/plateau.png')
         self.bg_photo = ImageTk.PhotoImage(self.bg_img)
         self.canvas.create_image(board_width / 2, board_height / 2, image=self.bg_photo)
         
