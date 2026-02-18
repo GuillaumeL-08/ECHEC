@@ -294,6 +294,81 @@ class TreeIA:
             return -1
         return 0
 
+    def _castling_score(self, wk, bk) -> int:
+        """
+        Bonus pour avoir roqué, pénalité pour avoir perdu le droit sans roquer.
+        Détecte si le roi est en position de roque accompli via sa case actuelle.
+        """
+        score = 0
+        b = self.board
+
+        # Cases de roque accompli : g1/c1 pour blancs, g8/c8 pour noirs
+        # g1=6, c1=2, g8=62, c8=58
+        WHITE_CASTLED  = {6, 2}   # g1, c1
+        BLACK_CASTLED  = {62, 58} # g8, c8
+
+        if wk is not None:
+            if wk in WHITE_CASTLED:
+                score += 60   # roque accompli : roi en sécurité
+            elif not (b.has_castling_rights(WHITE)):
+                score -= 50   # droits perdus sans roquer : pénalité
+            # Légère pénalité si le roi est encore au centre sans être en sécurité
+            elif wk == 4:  # e1 = position de départ
+                score -= 15
+
+        if bk is not None:
+            if bk in BLACK_CASTLED:
+                score -= 60
+            elif not (b.has_castling_rights(BLACK)):
+                score += 50
+            elif bk == 60:  # e8
+                score += 15
+
+        return score
+
+    def _center_control_score(self) -> int:
+        """
+        Contrôle du centre en early/mid game.
+        - Centre strict (e4,d4,e5,d5) : cases 27,28,35,36
+        - Centre étendu (c3–f3, c6–f6 et colonnes c-f rangs 3-6)
+        Le bonus diminue progressivement avec le nombre de coups joués.
+        """
+        b = self.board
+        ply = b.ply()
+
+        # Après le coup 30 (ply 60), le centre est moins crucial
+        if ply > 60:
+            return 0
+
+        # Coefficient : max en opening, décroît linéairement jusqu'à 0 à ply=60
+        weight = max(0.0, 1.0 - ply / 60.0)
+
+        CENTER_STRICT   = [27, 28, 35, 36]        # d4,e4,d5,e5
+        CENTER_EXTENDED = [18,19,20,21,            # c3,d3,e3,f3
+                           26,29,34,37,            # c4,f4,c5,f5
+                           42,43,44,45]            # c6,d6,e6,f6
+
+        score = 0
+
+        for sq in CENTER_STRICT:
+            piece = b.piece_at(sq)
+            if piece:
+                val = 35 if piece.piece_type == PAWN else 20
+                score += val if piece.color == WHITE else -val
+            # Bonus pour les cases attaquées même sans pièce dessus
+            if b.is_attacked_by(WHITE, sq): score += 8
+            if b.is_attacked_by(BLACK, sq): score -= 8
+
+        for sq in CENTER_EXTENDED:
+            piece = b.piece_at(sq)
+            if piece:
+                val = 15 if piece.piece_type == PAWN else 8
+                score += val if piece.color == WHITE else -val
+            if b.is_attacked_by(WHITE, sq): score += 3
+            if b.is_attacked_by(BLACK, sq): score -= 3
+
+        return int(score * weight)
+
     def evaluate(self) -> int:
         b = self.board
         if b.is_checkmate():
@@ -353,7 +428,20 @@ class TreeIA:
             if bk is not None: score -= PST_BLACK[KING][bk]
 
         # ---------------------------------------------------------------
-        # Heuristique de MAT FORCÉ
+        # ROQUE — bonus pour avoir roqué, pénalité pour avoir perdu le droit
+        # Uniquement en milieu de partie (en finale le roi doit aller au centre)
+        # ---------------------------------------------------------------
+        if not endgame:
+            score += self._castling_score(wk, bk)
+
+        # ---------------------------------------------------------------
+        # CONTRÔLE DU CENTRE — early game uniquement (avant le coup 20)
+        # Plus c'est tôt dans la partie, plus le centre vaut cher
+        # ---------------------------------------------------------------
+        if not endgame:
+            score += self._center_control_score()
+
+        # ---------------------------------------------------------------
         # En finale gagnante, l'IA doit savoir :
         #   1. Pousser le roi adverse dans un coin
         #   2. Rapprocher son propre roi
