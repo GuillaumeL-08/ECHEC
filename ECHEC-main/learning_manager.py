@@ -179,19 +179,45 @@ class LearningManager:
             zobrist_key = hash(board.fen()) & 0xFFFFFFFFFFFFFFFF
         self.current_game_moves.append((zobrist_key, board.san(move), float(score)))
 
-    def end_game(self, result: str, final_board: chess.Board):
-        """Met à jour l'apprentissage et sauvegarde après CHAQUE partie."""
+    def end_game(self, result: str, final_board: chess.Board, color: bool = chess.WHITE):
+        """
+        Met à jour l'apprentissage.
+        color : chess.WHITE si cette IA joue les blancs, chess.BLACK si elle joue les noirs.
+        Les stats W/D/L sont du point de vue de la couleur de l'IA.
+        """
         self.games_played += 1
 
+        # Résultat du point de vue de CETTE IA selon sa couleur
         if result == "1-0":
-            final_reward = 1000.0
-            self.wins += 1
+            final_reward = 1000.0 if color == chess.WHITE else -1000.0
+            if color == chess.WHITE:
+                self.wins += 1
+            else:
+                self.losses += 1
         elif result == "0-1":
-            final_reward = -1000.0
-            self.losses += 1
-        else:
+            final_reward = -1000.0 if color == chess.WHITE else 1000.0
+            if color == chess.WHITE:
+                self.losses += 1
+            else:
+                self.wins += 1
+        elif result == "1/2-1/2":
             final_reward = 0.0
             self.draws += 1
+        else:
+            # Partie interrompue (MAX_MOVES atteint, résultat "*") :
+            # ne pas compter comme nulle, utiliser le matériel pour estimer
+            mat = self._material_eval(final_board)
+            if color == chess.BLACK:
+                mat = -mat  # inverser pour les noirs
+            if mat > 150:
+                final_reward = 300.0   # légèrement positif
+                self.wins += 1
+            elif mat < -150:
+                final_reward = -300.0
+                self.losses += 1
+            else:
+                final_reward = 0.0
+                self.draws += 1
 
         # Reward shaping : signal intermédiaire basé sur le matériel final
         mat = self._material_eval(final_board)

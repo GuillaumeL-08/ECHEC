@@ -12,18 +12,18 @@ import sys
 
 # Durée d'entraînement cible (secondes). Mettre 36000 pour 10h.
 TRAINING_DURATION = 36000
-# Profondeur de recherche pendant l'entraînement (3 = bon compromis vitesse/qualité)
+# Profondeur de recherche pendant l'entraînement
 TRAIN_DEPTH = 3
 # Limite de temps par coup pendant l'entraînement (secondes)
 TIME_PER_MOVE = 1.0
-# Nombre max de coups par partie (évite les boucles infinies)
-MAX_MOVES = 150
+# Nombre max de coups par partie — assez grand pour que la majorité des parties finissent
+# naturellement. 200 évite les boucles infinies sans forcer trop de fausses nulles.
+MAX_MOVES = 200
 
 ia_white = None
 ia_black = None
 
 def signal_handler(sig, frame):
-    """Sauvegarde propre en cas d'interruption Ctrl+C."""
     print("\n\n=== Interruption détectée — sauvegarde en cours... ===")
     if ia_white and ia_white.learning_manager:
         ia_white.learning_manager.force_save()
@@ -35,7 +35,7 @@ def signal_handler(sig, frame):
 signal.signal(signal.SIGINT, signal_handler)
 
 
-def print_stats(ia_w, ia_b, game_num, elapsed, total_duration):
+def print_stats(ia_w, ia_b, game_num, elapsed, total_duration, results_log):
     stats_w = ia_w.get_learning_stats()
     stats_b = ia_b.get_learning_stats()
     pct = elapsed / total_duration * 100
@@ -43,13 +43,22 @@ def print_stats(ia_w, ia_b, game_num, elapsed, total_duration):
     h, m = divmod(int(remaining), 3600)
     m, s = divmod(m, 60)
 
-    print(f"\n{'='*60}")
+    # Compter les vrais résultats du log (pas les stats internes faussées)
+    white_wins  = results_log.count("1-0")
+    black_wins  = results_log.count("0-1")
+    draws       = results_log.count("1/2-1/2")
+    interrupted = results_log.count("*")
+    total       = len(results_log)
+
+    print(f"\n{'='*65}")
     print(f"  Partie {game_num:4d} | {pct:.1f}% | Temps restant: {h:02d}h{m:02d}m{s:02d}s")
-    print(f"  Blancs — W:{stats_w['wins']:4d} D:{stats_w['draws']:4d} L:{stats_w['losses']:4d} "
+    print(f"  Résultats réels  — Blanc: {white_wins:4d}  Noir: {black_wins:4d}  "
+          f"Nulles: {draws:4d}  Interrompues: {interrupted:3d} / {total}")
+    print(f"  Blancs (IA) — W:{stats_w['wins']:4d} D:{stats_w['draws']:4d} L:{stats_w['losses']:4d} "
           f"| Positions: {stats_w['positions_learned']:6d} | ε={stats_w['exploration_rate']:.3f}")
-    print(f"  Noirs  — W:{stats_b['wins']:4d} D:{stats_b['draws']:4d} L:{stats_b['losses']:4d} "
+    print(f"  Noirs  (IA) — W:{stats_b['wins']:4d} D:{stats_b['draws']:4d} L:{stats_b['losses']:4d} "
           f"| Positions: {stats_b['positions_learned']:6d} | ε={stats_b['exploration_rate']:.3f}")
-    print(f"{'='*60}")
+    print(f"{'='*65}")
 
 
 def train():
@@ -57,13 +66,12 @@ def train():
 
     print("=== Démarrage de l'entraînement ===")
     print(f"Durée prévue : {TRAINING_DURATION // 3600}h, profondeur={TRAIN_DEPTH}, "
-          f"temps/coup={TIME_PER_MOVE}s\n")
+          f"temps/coup={TIME_PER_MOVE}s, max_coups/partie={MAX_MOVES}\n")
 
-    # Deux IAs avec des fichiers de données séparés
     ia_white = TreeIA(depth=TRAIN_DEPTH, enable_learning=True, time_limit=TIME_PER_MOVE)
     ia_black = TreeIA(depth=TRAIN_DEPTH, enable_learning=True, time_limit=TIME_PER_MOVE)
 
-    # Utiliser des fichiers de données différents pour chaque couleur
+    # Fichiers séparés pour chaque couleur
     if ia_white.learning_manager:
         ia_white.learning_manager.data_file = "ia_white_data.json.gz"
         ia_white.learning_manager._load()
@@ -73,6 +81,7 @@ def train():
 
     start_time = time.time()
     game_num = 0
+    results_log = []  # log des vrais résultats pour les stats affichées
 
     while True:
         elapsed = time.time() - start_time
@@ -92,19 +101,26 @@ def train():
                     move_san = ia_black.coup(board)
                 board.push_san(move_san)
             except Exception as e:
-                print(f"[Erreur coup partie {game_num}]: {e}")
+                print(f"[Erreur coup partie {game_num}, coup {move_count}]: {e}")
                 break
 
-        result = board.result()
+        result = board.result()  # "1-0", "0-1", "1/2-1/2" ou "*" si MAX_MOVES atteint
+        results_log.append(result)
 
-        ia_white.end_game(result, board)
-        ia_black.end_game(result, board)
+        # BUG FIX: passer la couleur pour que W/D/L soient corrects par camp
+        if ia_white.learning_manager:
+            ia_white.learning_manager.end_game(result, board, color=WHITE)
+            ia_white.learning_manager.start_new_game()
+        if ia_black.learning_manager:
+            ia_black.learning_manager.end_game(result, board, color=BLACK)
+            ia_black.learning_manager.start_new_game()
 
-        # Afficher les stats toutes les 10 parties
+        ia_white.opening_moves_played = 0
+        ia_black.opening_moves_played = 0
+
         if game_num % 10 == 0:
-            print_stats(ia_white, ia_black, game_num, elapsed, TRAINING_DURATION)
+            print_stats(ia_white, ia_black, game_num, elapsed, TRAINING_DURATION, results_log)
 
-    # Sauvegarde finale
     print(f"\n=== Entraînement terminé ({game_num} parties) ===")
     if ia_white.learning_manager:
         ia_white.learning_manager.force_save()

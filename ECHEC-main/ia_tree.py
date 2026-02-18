@@ -788,13 +788,22 @@ class TreeIA:
 
         return board.san(move)
 
-    def end_game(self, result: str, board=None):
+    def end_game(self, result: str, board=None, color=None):
+        """
+        Réinitialise l'IA pour une nouvelle partie.
+        - Depuis test_learning.py : learning_manager.end_game() est appelé directement
+          avec la bonne couleur, donc ici on fait juste le reset.
+        - Depuis canvas_tkinter.py (UI) : color doit être passé pour que l'apprentissage
+          soit correct.
+        """
         if self.learning_manager:
             final_board = board or getattr(self, 'board', None) or Board()
-            self.learning_manager.end_game(result, final_board)
+            if color is not None:
+                # Appel depuis l'UI avec la couleur : gérer l'apprentissage ici
+                self.learning_manager.end_game(result, final_board, color=color)
+            # Dans tous les cas, préparer la prochaine partie
             self.learning_manager.start_new_game()
         self.opening_moves_played = 0
-        # Nettoyer la TT entre les parties pour libérer de la mémoire
         self.tt.clear()
         self.history = {}
 
