@@ -899,22 +899,33 @@ class TreeIA:
 
     def end_game(self, result: str, board=None, color=None):
         """
-        Réinitialise l'IA pour une nouvelle partie.
-        - Depuis test_learning.py : learning_manager.end_game() est appelé directement
-          avec la bonne couleur, donc ici on fait juste le reset.
-        - Depuis canvas_tkinter.py (UI) : color doit être passé pour que l'apprentissage
-          soit correct.
+        Déclenche l'apprentissage et réinitialise l'IA pour une nouvelle partie.
+        - color=chess.WHITE ou chess.BLACK : couleur jouée par cette IA.
+        - color=None : déduit depuis self.board.turn (tour suivant = couleur adverse)
+          ou suppose WHITE par défaut.
         """
         if self.learning_manager:
             final_board = board or getattr(self, 'board', None) or Board()
-            if color is not None:
-                # Appel depuis l'UI avec la couleur : gérer l'apprentissage ici
-                self.learning_manager.end_game(result, final_board, color=color)
-            # Dans tous les cas, préparer la prochaine partie
+            if color is None:
+                # Déduit la couleur jouée par cette IA depuis le board courant.
+                # Après le dernier coup, c'est au tour de l'adversaire → cette IA = couleur opposée.
+                if final_board is not None and hasattr(final_board, 'turn'):
+                    color = not final_board.turn  # l'IA a joué le dernier coup, donc c'est l'opposé
+                else:
+                    color = WHITE  # fallback
+            self.learning_manager.end_game(result, final_board, color=color)
             self.learning_manager.start_new_game()
         self.tt.clear()
         self.history = {}
-        self._piece_move_count = {}  # reset pour la nouvelle partie
+        self._piece_move_count = {}
+
+    def _reset_for_new_game(self):
+        """Réinitialise les structures internes de l'IA pour une nouvelle partie.
+        N'affecte PAS le learning_manager (end_game doit être appelé séparément avant)."""
+        self.tt.clear()
+        self.history = {}
+        self._piece_move_count = {}
+        self.killer_moves = [[None, None] for _ in range(self.MAX_DEPTH + 2)]
 
     def get_learning_stats(self):
         if self.learning_manager:

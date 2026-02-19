@@ -2,7 +2,6 @@ import json
 import os
 import gzip
 import random
-import tempfile
 from datetime import datetime
 from collections import OrderedDict
 from typing import Dict, List, Tuple, Optional

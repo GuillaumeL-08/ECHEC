@@ -117,19 +117,9 @@ def train():
         result = board.result()
         results_log.append(result)
 
-        # Backpropagation + sauvegarde
-        if ia_white.learning_manager:
-            ia_white.learning_manager.end_game(result, board, color=WHITE)
-        if ia_black.learning_manager:
-            ia_black.learning_manager.end_game(result, board, color=BLACK)
-
-        # Reset pour la prochaine partie
-        ia_white._reset_for_new_game()
-        ia_black._reset_for_new_game()
-        if ia_white.learning_manager:
-            ia_white.learning_manager.start_new_game()
-        if ia_black.learning_manager:
-            ia_black.learning_manager.start_new_game()
+        # Backpropagation, sauvegarde ET reset pour la prochaine partie
+        ia_white.end_game(result, board, color=WHITE)
+        ia_black.end_game(result, board, color=BLACK)
 
         if game_num % 10 == 0:
             print_stats(ia_white, ia_black, game_num, elapsed, TRAINING_DURATION, results_log)

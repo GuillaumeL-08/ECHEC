@@ -208,9 +208,9 @@ class Chess_UI:
 
             # Notifier les IAs que la partie est terminée pour l'apprentissage
             if hasattr(self.Joueur_Blanc, 'end_game'):
-                self.Joueur_Blanc.end_game(self.board.result(), self.board)
+                self.Joueur_Blanc.end_game(self.board.result(), self.board, color=WHITE)
             if hasattr(self.Joueur_Noir, 'end_game'):
-                self.Joueur_Noir.end_game(self.board.result(), self.board)
+                self.Joueur_Noir.end_game(self.board.result(), self.board, color=BLACK)
 
             # Afficher les statistiques d'apprentissage si disponibles
             stats_text = ""
