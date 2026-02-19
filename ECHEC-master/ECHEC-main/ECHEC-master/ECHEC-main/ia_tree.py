@@ -199,14 +199,6 @@ OPENING_BOOK = {
     'r1bqkbnr/pppp1ppp/2n5/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R w KQkq - 0 3': [
         'Bb5', 'Bc4', 'd4', 'Nc3'
     ],
-    # 1.e4 e5 2.Nf3 Nc6 3.Bc4 — réponses noires (éviter pièges type Fegatello)
-    'r1bqkbnr/pppp1ppp/2n5/4p3/2B1P3/5N2/PPPP1PPP/RNBQK2R b KQkq - 0 3': [
-        'Bc5', 'Nf6', 'd6', 'Be7'
-    ],
-    # 1.e4 e5 2.Nf3 Nc6 3.Bc4 Nf6 4.Ng5 — noirs doivent jouer d5 !
-    'r1bqkb1r/pppp1ppp/2n2n2/4p3/2B1P3/5N2/PPPP1PPP/RNBQK2R b KQkq - 0 4': [
-        'd5', 'Bc5', 'Nd4'
-    ],
 
     # ======================================================
     # Après 1.e4 c5 (Sicilienne)
@@ -311,19 +303,19 @@ class BoundedTT:
 
 # ---------------------------------------------------------------------------
 # Zobrist hashing simplifié
-# Utiliser un RNG séparé pour ne pas affecter random.sample() du livre d'ouvertures
 # ---------------------------------------------------------------------------
-_zobrist_rng = random.Random(0xDEADBEEF)
+import random as _rng
+_rng.seed(0xDEADBEEF)
 
 _ZOBRIST_PIECE = {}
 for _color in (True, False):
     for _pt in (PAWN, KNIGHT, BISHOP, ROOK, QUEEN, KING):
         for _sq in range(64):
-            _ZOBRIST_PIECE[(_color, _pt, _sq)] = _zobrist_rng.getrandbits(64)
+            _ZOBRIST_PIECE[(_color, _pt, _sq)] = _rng.getrandbits(64)
 
-_ZOBRIST_TURN = _zobrist_rng.getrandbits(64)
-_ZOBRIST_CASTLING = [_zobrist_rng.getrandbits(64) for _ in range(16)]
-_ZOBRIST_EP = [_zobrist_rng.getrandbits(64) for _ in range(8)]
+_ZOBRIST_TURN = _rng.getrandbits(64)
+_ZOBRIST_CASTLING = [_rng.getrandbits(64) for _ in range(16)]
+_ZOBRIST_EP = [_rng.getrandbits(64) for _ in range(8)]
 
 def zobrist_hash(board: Board) -> int:
     """Calcule un hash Zobrist 64-bit pour la position."""
@@ -571,15 +563,6 @@ class TreeIA:
             if sq // 8 < 7:
                 score -= 8
 
-        # 5) Pénalité : tour déplacée d'une case sur la dernière rangée (Rh8-g8, Ra8-b8)
-        #    Coup passif en ouverture — la tour devrait rester pour le roque
-        for sq in b.pieces(ROOK, WHITE):
-            if sq // 8 == 0 and sq not in (0, 7):  # tour au centre de la 1re rangée
-                score -= 15
-        for sq in b.pieces(ROOK, BLACK):
-            if sq // 8 == 7 and sq not in (56, 63):  # tour au centre de la 8e rangée
-                score += 15
-
         return int(score * weight)
 
     def evaluate(self) -> int:
@@ -767,17 +750,6 @@ class TreeIA:
 
         # 4) History heuristic
         score += self.history.get((move.from_square, move.to_square), 0) // 256
-
-        # 5) Pénalité : tour qui glisse d'une case sur la dernière rangée en ouverture
-        #    (Rh8-g8, Ra8-b8, etc.) — coup passif qui gaspille un tempo
-        if b.ply() < 24:
-            piece = b.piece_at(move.from_square)
-            if piece and piece.piece_type == ROOK:
-                fr, fc = move.from_square // 8, move.from_square % 8
-                tr, tc = move.to_square // 8, move.to_square % 8
-                back_rank = 0 if piece.color == WHITE else 7
-                if fr == back_rank and tr == back_rank and abs(fc - tc) == 1:
-                    score -= 100
 
         return score
 
