@@ -92,6 +92,16 @@ def train():
         board = Board()
         move_count = 0
 
+        # Toutes les 5 parties : forcer une profondeur 1 pour des parties très variées
+        # Ça explore des positions que depth=3 ne verrait jamais
+        shallow_game = (game_num % 5 == 0)
+        if shallow_game:
+            ia_white.depth = 1
+            ia_black.depth = 1
+        else:
+            ia_white.depth = TRAIN_DEPTH
+            ia_black.depth = TRAIN_DEPTH
+
         while not board.is_game_over() and move_count < MAX_MOVES:
             move_count += 1
             try:
@@ -104,19 +114,22 @@ def train():
                 print(f"[Erreur coup partie {game_num}, coup {move_count}]: {e}")
                 break
 
-        result = board.result()  # "1-0", "0-1", "1/2-1/2" ou "*" si MAX_MOVES atteint
+        result = board.result()
         results_log.append(result)
 
-        # BUG FIX: passer la couleur pour que W/D/L soient corrects par camp
+        # Backpropagation + sauvegarde
         if ia_white.learning_manager:
             ia_white.learning_manager.end_game(result, board, color=WHITE)
-            ia_white.learning_manager.start_new_game()
         if ia_black.learning_manager:
             ia_black.learning_manager.end_game(result, board, color=BLACK)
-            ia_black.learning_manager.start_new_game()
 
-        ia_white.opening_moves_played = 0
-        ia_black.opening_moves_played = 0
+        # Reset pour la prochaine partie
+        ia_white._reset_for_new_game()
+        ia_black._reset_for_new_game()
+        if ia_white.learning_manager:
+            ia_white.learning_manager.start_new_game()
+        if ia_black.learning_manager:
+            ia_black.learning_manager.start_new_game()
 
         if game_num % 10 == 0:
             print_stats(ia_white, ia_black, game_num, elapsed, TRAINING_DURATION, results_log)

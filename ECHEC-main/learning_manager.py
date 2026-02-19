@@ -56,9 +56,9 @@ class LearningManager:
     MAX_POSITIONS = 200_000
     LR = 0.15
     GAMMA = 0.92
-    EXPLORE_START = 0.25
-    EXPLORE_MIN = 0.02
-    EXPLORE_DECAY = 0.997
+    EXPLORE_START = 0.35   # 35% de coups aléatoires au début (était 0.25)
+    EXPLORE_MIN = 0.05     # minimum 5% même en fin d'entraînement (était 0.02)
+    EXPLORE_DECAY = 0.995  # décroissance plus lente (était 0.997)
 
     def __init__(self, data_file: str = "ia_learning_data.json"):
         # BUG FIX: nom de fichier par défaut .json simple (cohérent avec ia_tree.py)

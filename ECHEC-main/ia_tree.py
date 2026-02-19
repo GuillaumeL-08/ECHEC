@@ -44,10 +44,10 @@ PST = {
     KNIGHT: [
         -80,-60,-40,-40,-40,-40,-60,-80,  # rang 1
         -60,-30,  0,  5,  5,  0,-30,-60,  # rang 2 : b1/g1 = position départ
-        -40,  0, 15, 22, 22, 15,  0,-40,  # rang 3
-        -40,  5, 22, 30, 30, 22,  5,-40,  # rang 4 : h4/a4 = -40 !
-        -40,  5, 22, 30, 30, 22,  5,-40,  # rang 5
-        -40,  0, 15, 22, 22, 15,  0,-40,  # rang 6
+        -55,  0, 15, 22, 22, 15,  0,-55,  # rang 3 : h3/a3 = -55 (Nh3 très mauvais)
+        -55,  5, 22, 30, 30, 22,  5,-55,  # rang 4 : h4/a4 = -55
+        -55,  5, 22, 30, 30, 22,  5,-55,  # rang 5
+        -55,  0, 15, 22, 22, 15,  0,-55,  # rang 6
         -60,-30,  0,  0,  0,  0,-30,-60,  # rang 7
         -80,-60,-40,-40,-40,-40,-60,-80,  # rang 8
     ],
@@ -159,119 +159,10 @@ KING_ENDGAME_BLACK   = list(reversed(KING_ENDGAME))
 # ---------------------------------------------------------------------------
 # Livre d'ouvertures
 # ---------------------------------------------------------------------------
-OPENING_BOOK = {
-    # ---- Position initiale ----
-    'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1': [
-        'e4', 'd4', 'c4', 'Nf3', 'g3', 'b3'
-    ],
+# ---------------------------------------------------------------------------
+# (Livre d'ouvertures supprimé — l'IA joue ses propres coups dès le début)
+# ---------------------------------------------------------------------------
 
-    # ---- Après 1.e4 ----
-    'rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1': [
-        'e5', 'c5', 'e6', 'c6', 'd6', 'g6', 'd5'
-    ],
-
-    # ---- Après 1.d4 ----
-    'rnbqkbnr/pppppppp/8/8/3P4/8/PPP1PPPP/RNBQKBNR b KQkq - 0 1': [
-        'd5', 'Nf6', 'e6', 'f5', 'c5', 'g6'
-    ],
-
-    # ---- Après 1.c4 ----
-    'rnbqkbnr/pppppppp/8/8/2P5/8/PP1PPPPP/RNBQKBNR b KQkq - 0 1': [
-        'e5', 'c5', 'Nf6', 'e6', 'g6', 'c6'
-    ],
-
-    # ---- Après 1.Nf3 ----
-    'rnbqkbnr/pppppppp/8/8/8/5N2/PPPPPPPP/RNBQKB1R b KQkq - 0 1': [
-        'd5', 'Nf6', 'c5', 'g6', 'e6'
-    ],
-
-    # ======================================================
-    # Après 1.e4 e5
-    # ======================================================
-    'rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 2': [
-        'Nf3', 'Nc3', 'Bc4', 'f4', 'd4'
-    ],
-    # 1.e4 e5 2.Nf3
-    'rnbqkbnr/pppp1ppp/8/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R b KQkq - 0 2': [
-        'Nc6', 'Nf6', 'd6', 'f5'
-    ],
-    # 1.e4 e5 2.Nf3 Nc6 (Partie italienne / Espagnole)
-    'r1bqkbnr/pppp1ppp/2n5/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R w KQkq - 0 3': [
-        'Bb5', 'Bc4', 'd4', 'Nc3'
-    ],
-
-    # ======================================================
-    # Après 1.e4 c5 (Sicilienne)
-    # ======================================================
-    'rnbqkbnr/pp1ppppp/8/2p5/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 2': [
-        'Nf3', 'Nc3', 'd4', 'c3'
-    ],
-    # 1.e4 c5 2.Nf3
-    'rnbqkbnr/pp1ppppp/8/2p5/4P3/5N2/PPPP1PPP/RNBQKB1R b KQkq - 0 2': [
-        'd6', 'Nc6', 'e6', 'g6'
-    ],
-
-    # ======================================================
-    # Après 1.e4 e6 (Française)
-    # ======================================================
-    'rnbqkbnr/pppp1ppp/4p3/8/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 2': [
-        'd4', 'Nf3', 'Nc3', 'd3'
-    ],
-    # 1.e4 e6 2.d4
-    'rnbqkbnr/pppp1ppp/4p3/8/3PP3/8/PPP2PPP/RNBQKBNR b KQkq - 0 2': [
-        'd5', 'Nf6', 'c5', 'b6'
-    ],
-
-    # ======================================================
-    # Après 1.e4 c6 (Caro-Kann)
-    # ======================================================
-    'rnbqkbnr/pp1ppppp/2p5/8/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 2': [
-        'd4', 'Nf3', 'Nc3', 'd3'
-    ],
-
-    # ======================================================
-    # Après 1.e4 d6 (Pirc)
-    # ======================================================
-    'rnbqkbnr/ppp1pppp/3p4/8/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 2': [
-        'd4', 'Nf3', 'Nc3', 'f4'
-    ],
-
-    # ======================================================
-    # Après 1.e4 d5 (Scandinave)
-    # ======================================================
-    'rnbqkbnr/ppp1pppp/8/3p4/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 2': [
-        'exd5', 'Nc3', 'e5'
-    ],
-
-    # ======================================================
-    # Après 1.d4 d5
-    # ======================================================
-    'rnbqkbnr/ppp1pppp/8/3p4/3P4/8/PPP1PPPP/RNBQKBNR w KQkq - 0 2': [
-        'c4', 'Nf3', 'Nc3', 'Bf4', 'e3'
-    ],
-    # 1.d4 d5 2.c4 (Dame gambite)
-    'rnbqkbnr/ppp1pppp/8/3p4/2PP4/8/PP2PPPP/RNBQKBNR b KQkq - 0 2': [
-        'e6', 'c6', 'dxc4', 'Nf6', 'e5'
-    ],
-
-    # ======================================================
-    # Après 1.d4 Nf6
-    # ======================================================
-    'rnbqkb1r/pppppppp/5n2/8/3P4/8/PPP1PPPP/RNBQKBNR w KQkq - 0 2': [
-        'c4', 'Nf3', 'Bg5', 'e3', 'f3'
-    ],
-    # 1.d4 Nf6 2.c4 (Défense indienne)
-    'rnbqkb1r/pppppppp/5n2/8/2PP4/8/PP2PPPP/RNBQKBNR b KQkq - 0 2': [
-        'g6', 'e6', 'c5', 'd5', 'c6'
-    ],
-
-    # ======================================================
-    # Après 1.d4 f5 (Hollandaise)
-    # ======================================================
-    'rnbqkbnr/ppppp1pp/8/5p2/3P4/8/PPP1PPPP/RNBQKBNR w KQkq - 0 2': [
-        'g3', 'Nf3', 'c4', 'Bg5', 'e3'
-    ],
-}
 
 # ---------------------------------------------------------------------------
 # LRU-bounded transposition table
@@ -347,10 +238,10 @@ class TreeIA:
         self.tt = BoundedTT(self.TT_SIZE)
         self.killer_moves = [[None, None] for _ in range(self.MAX_DEPTH + 2)]
         self.history = {}
-        self.opening_moves_played = 0
         self.enable_learning = enable_learning
         self._start_time = 0.0
         self._nodes = 0
+        self._eval_noise = 0          # bruit d'exploration (actif pendant l'apprentissage)
         self._piece_move_count = {}  # sq -> nb de fois que la pièce a bougé (opening)
 
         if enable_learning:
@@ -489,6 +380,9 @@ class TreeIA:
     def _development_score(self) -> int:
         """
         Favorise le développement rapide en opening.
+        IMPORTANT : les pénalités doivent rester faibles par rapport au matériel
+        pour ne jamais justifier un sacrifice (cavalier = 320 pts).
+        Règle : pénalité max totale < 100 pts.
         """
         b = self.board
         ply = b.ply()
@@ -499,27 +393,25 @@ class TreeIA:
         weight = max(0.0, 1.0 - ply / 40.0)
         score = 0
 
+        # Cases de départ des pièces mineures
         W_MINOR_START = {1: KNIGHT, 6: KNIGHT, 2: BISHOP, 5: BISHOP}
         B_MINOR_START = {57: KNIGHT, 62: KNIGHT, 58: BISHOP, 61: BISHOP}
 
-        # 1) Pièces mineures non développées
+        # 1) Pénalité LÉGÈRE pour pièces non développées (max 4×12 = 48 pts)
         w_undeveloped = 0
         b_undeveloped = 0
         for sq, pt in W_MINOR_START.items():
             piece = b.piece_at(sq)
             if piece and piece.color == WHITE and piece.piece_type == pt:
-                score -= 25
+                score -= 12   # était 25, réduit pour ne pas justifier un sacrifice
                 w_undeveloped += 1
         for sq, pt in B_MINOR_START.items():
             piece = b.piece_at(sq)
             if piece and piece.color == BLACK and piece.piece_type == pt:
-                score += 25
+                score += 12
                 b_undeveloped += 1
 
-        # 2) Pénalité double mouvement — lecture directe du move stack
-        # On sépare les coups blancs et noirs, et on vérifie si le dernier coup
-        # d'un camp rebougé la même pièce que l'avant-dernier coup de ce camp.
-        # C'est O(ply) mais ply <= 40 donc très rapide.
+        # 2) Double mouvement — pénalité si une pièce rebougée alors qu'autres non sorties
         if ply >= 4:
             moves = list(b.move_stack)
             white_moves = [m for i, m in enumerate(moves) if i % 2 == 0]
@@ -529,39 +421,37 @@ class TreeIA:
                 pen = 0
                 for j in range(1, len(camp_moves)):
                     prev, curr = camp_moves[j-1], camp_moves[j]
-                    # Si la pièce qui vient d'arriver en prev.to_square est rebougée
                     if curr.from_square == prev.to_square and undeveloped >= 1:
-                        # Vérifier que c'est bien une pièce mineure dans la position actuelle
                         piece = b.piece_at(curr.to_square)
                         if piece and piece.piece_type in (KNIGHT, BISHOP):
-                            pen += sign * 40  # -40 blancs, +40 noirs
+                            pen += sign * 18  # réduit de 40 à 18
                 return pen
 
             score += double_move_penalty(white_moves, w_undeveloped, -1)
             score += double_move_penalty(black_moves, b_undeveloped, +1)
 
-        # 3) Dame sortie trop tôt
+        # 3) Dame sortie trop tôt (pénalité légère)
         if ply < 12:
             wq_sq = list(b.pieces(QUEEN, WHITE))
             bq_sq = list(b.pieces(QUEEN, BLACK))
             if wq_sq and wq_sq[0] != 3 and w_undeveloped >= 2:
-                score -= 20 * w_undeveloped
+                score -= 12 * w_undeveloped  # max -48, était -20×4=-80
             if bq_sq and bq_sq[0] != 59 and b_undeveloped >= 2:
-                score += 20 * b_undeveloped
+                score += 12 * b_undeveloped
 
-        # 4) Bonus développement
+        # 4) Bonus développement (max 4×8 = 32 pts)
         for sq in b.pieces(KNIGHT, WHITE):
             if sq // 8 > 0:
-                score += 10
+                score += 8   # était 10
         for sq in b.pieces(BISHOP, WHITE):
             if sq // 8 > 0:
-                score += 8
+                score += 6   # était 8
         for sq in b.pieces(KNIGHT, BLACK):
             if sq // 8 < 7:
-                score -= 10
+                score -= 8
         for sq in b.pieces(BISHOP, BLACK):
             if sq // 8 < 7:
-                score -= 8
+                score -= 6
 
         return int(score * weight)
 
@@ -663,6 +553,12 @@ class TreeIA:
 
         if self.learning_manager:
             score = self.learning_manager.get_position_value_with_learning(b, score)
+
+        # Bruit d'exploration : perturbe légèrement le score pendant l'apprentissage
+        # pour varier les coups choisis par minimax (décroît avec ε)
+        noise = getattr(self, '_eval_noise', 0)
+        if noise > 0:
+            score += random.randint(-noise, noise)
 
         # CONVENTION NEGAMAX : retourner du point de vue du camp qui joue
         return score if b.turn == WHITE else -score
@@ -875,71 +771,39 @@ class TreeIA:
 
         best_move = None
         original_alpha = alpha
+        best_score = -10**9
 
-        if maximizing:
-            best_score = -10**9
-            for i, move in enumerate(moves):
-                b.push(move)
-                # LMR : Late Move Reduction (coups tardifs cherchés moins profond)
-                if i >= 4 and depth >= 3 and not b.is_check() and not b.is_capture(move):
-                    score, _ = self.minimax(depth - 2, alpha, beta, False)
-                    if score is not None and score > alpha:
-                        score, _ = self.minimax(depth - 1, alpha, beta, False)
-                else:
-                    score, _ = self.minimax(depth - 1, alpha, beta, False)
-                b.pop()
+        for i, move in enumerate(moves):
+            b.push(move)
+            # LMR
+            if i >= 4 and depth >= 3 and not b.is_check() and not self.board.is_capture(move):
+                score, _ = self.minimax(depth - 2, -beta, -alpha, not maximizing)
+                if score is not None and -score > alpha:
+                    score, _ = self.minimax(depth - 1, -beta, -alpha, not maximizing)
+            else:
+                score, _ = self.minimax(depth - 1, -beta, -alpha, not maximizing)
+            b.pop()
 
-                if score is None:
-                    return None, None  # timeout propagé
+            if score is None:
+                return None, None
 
-                if score > best_score:
-                    best_score = score
-                    best_move = move
-                alpha = max(alpha, best_score)
-                if beta <= alpha:
-                    if not self.board.is_capture(move):
-                        self._update_killer(move, depth)
-                        self._update_history(move, depth)
-                    break
+            score = -score  # negamax : inverser le score du fils
 
-            flag = (BoundedTT.EXACT if original_alpha < best_score < beta
-                    else BoundedTT.LOWER if best_score >= beta
-                    else BoundedTT.UPPER)
-            self.tt.put(zkey, best_score, flag, depth, best_move)
-            return best_score, best_move
+            if score > best_score:
+                best_score = score
+                best_move = move
+            alpha = max(alpha, best_score)
+            if alpha >= beta:
+                if not self.board.is_capture(move):
+                    self._update_killer(move, depth)
+                    self._update_history(move, depth)
+                break
 
-        else:
-            best_score = 10**9
-            for i, move in enumerate(moves):
-                b.push(move)
-                if i >= 4 and depth >= 3 and not b.is_check() and not b.is_capture(move):
-                    score, _ = self.minimax(depth - 2, -beta, -alpha, True)
-                    if score is not None and -score < beta:
-                        score, _ = self.minimax(depth - 1, -beta, -alpha, True)
-                    if score is not None:
-                        score = score  # garder le score tel quel pour min
-                else:
-                    score, _ = self.minimax(depth - 1, -beta, -alpha, True)
-                b.pop()
-
-                if score is None:
-                    return None, None
-
-                if score < best_score:
-                    best_score = score
-                    best_move = move
-                beta = min(beta, best_score)
-                if beta <= alpha:
-                    if not self.board.is_capture(move):
-                        self._update_killer(move, depth)
-                        self._update_history(move, depth)
-                    break
-
-            flag = (BoundedTT.EXACT if original_alpha < best_score < beta
-                    else BoundedTT.UPPER if best_score <= alpha
-                    else BoundedTT.LOWER)
-            self.tt.put(zkey, best_score, flag, depth, best_move)
-            return best_score, best_move
+        flag = (BoundedTT.EXACT if original_alpha < best_score < beta
+                else BoundedTT.LOWER if best_score >= beta
+                else BoundedTT.UPPER)
+        self.tt.put(zkey, best_score, flag, depth, best_move)
+        return best_score, best_move
 
     # ------------------------------------------------------------------
     # Approfondissement itératif (Iterative Deepening)
@@ -980,51 +844,35 @@ class TreeIA:
         return best_move
 
     # ------------------------------------------------------------------
-    # Livre d'ouvertures
-    # ------------------------------------------------------------------
-    def get_opening_move(self, board: Board):
-        fen = board.fen()
-        if fen in OPENING_BOOK:
-            for move_san in random.sample(OPENING_BOOK[fen], len(OPENING_BOOK[fen])):
-                try:
-                    move = board.push_san(move_san)
-                    board.pop()
-                    return board.san(move)
-                except ValueError:
-                    continue
-        return None
-
-    # ------------------------------------------------------------------
     # Interface publique
     # ------------------------------------------------------------------
     def coup(self, board: Board) -> str:
         self.board = board
 
-        # Réinitialiser les killers entre les coups
         self.killer_moves = [[None, None] for _ in range(self.MAX_DEPTH + 2)]
 
-        # Livre d'ouvertures
-        if self.opening_moves_played < 12:
-            opening_move = self.get_opening_move(board)
-            if opening_move:
-                self.opening_moves_played += 1
-                return opening_move
-            else:
-                self.opening_moves_played = 12
+        if self.learning_manager:
+            eps = self.learning_manager.exploration_rate
 
-        # Exploration aléatoire
-        if self.learning_manager and self.learning_manager.should_explore():
-            legal = list(board.legal_moves)
-            if legal:
-                non_rep = [m for m in legal if not self._is_repetition_move(m)]
-                move = random.choice(non_rep if non_rep else legal)
-                self._track_piece_move(board, move)
-                if self.learning_manager:
+            # 1) Coup entièrement aléatoire (ε-greedy classique)
+            if self.learning_manager.should_explore():
+                legal = list(board.legal_moves)
+                if legal:
+                    non_rep = [m for m in legal if not self._is_repetition_move(m)]
+                    move = random.choice(non_rep if non_rep else legal)
+                    self._track_piece_move(board, move)
                     self.learning_manager.record_move(board, move, self.evaluate())
-                return board.san(move)
+                    return board.san(move)
 
-        # Recherche principale
+            # 2) Bruit sur l'évaluation : perturbe le choix minimax
+            #    Plus ε est grand (début apprentissage), plus le bruit est fort
+            #    noise_level va de 80 pts (ε=0.25) à 5 pts (ε=0.02)
+            self._eval_noise = int(eps * 320)  # max ~80 pts de bruit
+        else:
+            self._eval_noise = 0
+
         move = self.iterative_deepening()
+        self._eval_noise = 0  # reset après la recherche
         self._track_piece_move(board, move)
 
         if self.learning_manager:
@@ -1064,7 +912,6 @@ class TreeIA:
                 self.learning_manager.end_game(result, final_board, color=color)
             # Dans tous les cas, préparer la prochaine partie
             self.learning_manager.start_new_game()
-        self.opening_moves_played = 0
         self.tt.clear()
         self.history = {}
         self._piece_move_count = {}  # reset pour la nouvelle partie
