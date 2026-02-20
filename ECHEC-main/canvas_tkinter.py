@@ -3,7 +3,6 @@ from tkinter import ttk
 from PIL import Image, ImageTk
 from chess import *
 from human_controller import HumanController
-from evaluator import Evaluator
 import os
 
 board_width = 1024
@@ -36,24 +35,6 @@ class Chess_UI:
         self.mainframe = ttk.Frame(self.root)
         self.mainframe.grid()
 
-        # evaluator used to compute a numeric score of the current position
-        self.evaluator = Evaluator(lambda: self.board)
-
-        # evaluation display variables/widgets
-        self.eval_var = DoubleVar(value=0)
-        # vertical progress bar showing advantage:
-        # left (0) = -max_score, right (max) = +max_score
-        self.eval_bar = ttk.Progressbar(
-            self.mainframe,
-            orient='vertical',
-            length=board_height,
-            mode='determinate',
-            maximum=2000,
-            variable=self.eval_var
-        )
-        self.eval_bar.grid(row=1, column=11, rowspan=8, sticky=(N, S))
-        self.eval_label = Label(self.mainframe, text="Eval: 0", bg='white')
-        self.eval_label.grid(row=0, column=11)
 
         for i in range(8):
             label = Label(self.mainframe, text=chr(ord('A') + i), bg='white')
@@ -125,16 +106,6 @@ class Chess_UI:
         else:
             self.history_black_listbox.update()
 
-        # refresh evaluation display
-        try:
-            score = self.evaluator.evaluate()
-        except Exception:
-            score = 0
-        # clamp to [-1000,1000] so bar doesn't overflow
-        clamped = max(-1000, min(1000, score))
-        # progress bar range is 0..2000, map -1000->0 and +1000->2000
-        self.eval_var.set(clamped + 1000)
-        self.eval_label.config(text=f"Eval: {score}")
 
         self.human_controller.maybe_schedule_ai_turn(self.jouer)
 
