@@ -35,12 +35,10 @@ class Chess_UI:
         self.mainframe = ttk.Frame(self.root)
         self.mainframe.grid(sticky=(N, S, E, W))
 
-        # enable the root window to expand and start maximized
         self.root.columnconfigure(0, weight=1)
         self.root.rowconfigure(0, weight=1)
         self.root.state('zoomed')
 
-        # configure weights inside mainframe so canvas grows with window
         for i in range(1, 9):
             self.mainframe.rowconfigure(i, weight=1)
         for j in range(1, 9):
@@ -120,7 +118,6 @@ class Chess_UI:
 
         self.human_controller.maybe_schedule_ai_turn(self.jouer)
 
-    # history updates now happen directly in jouer(), these helpers are no longer used
     def update_history_white(self, entry):
         self.history_white.append(entry)
         self.history_white_var.set(self.history_white)
@@ -170,7 +167,7 @@ class Chess_UI:
                 return
             san = self.Joueur_Blanc.coup(self.board)
             self.board.push_san(san)
-            # record white move with move number
+
             num = self.board.fullmove_number
             self.history_white.append(f"{num}. {san}")
             self.history_white_var.set(self.history_white)
