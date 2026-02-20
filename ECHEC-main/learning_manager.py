@@ -9,8 +9,6 @@ import chess
 
 
 class BoundedDict:
-    """Dictionnaire LRU borné pour éviter la fuite mémoire après 10h."""
-
     def __init__(self, max_size: int = 200_000):
         self.max_size = max_size
         self._d = OrderedDict()
@@ -50,25 +48,20 @@ class BoundedDict:
 
 
 class LearningManager:
-    """Apprentissage par renforcement optimisé pour 10h d'entraînement."""
-
     MAX_POSITIONS = 200_000
     LR = 0.15
     GAMMA = 0.92
-    EXPLORE_START = 0.35   # 35% de coups aléatoires au début (était 0.25)
-    EXPLORE_MIN = 0.05     # minimum 5% même en fin d'entraînement (était 0.02)
-    EXPLORE_DECAY = 0.995  # décroissance plus lente (était 0.997)
+    EXPLORE_START = 0.35
+    EXPLORE_MIN = 0.05
+    EXPLORE_DECAY = 0.995
 
     def __init__(self, data_file: str = "ia_learning_data.json"):
-        # BUG FIX: nom de fichier par défaut .json simple (cohérent avec ia_tree.py)
-        # Détecte automatiquement si un .gz ou .json existe déjà
         if data_file.endswith('.gz'):
             self.data_file = data_file
         elif os.path.exists(data_file + '.gz'):
-            # Préfère le .gz s'il existe
             self.data_file = data_file + '.gz'
         else:
-            self.data_file = data_file  # .json simple
+            self.data_file = data_file
 
         self.position_values: BoundedDict = BoundedDict(self.MAX_POSITIONS)
         self.current_game_moves: List[Tuple[int, str, float]] = []
@@ -80,12 +73,8 @@ class LearningManager:
 
         self._load()
 
-    # ------------------------------------------------------------------
-    # Persistance
-    # ------------------------------------------------------------------
     def _load(self):
         paths_to_try = [self.data_file]
-        # Essaie aussi l'autre format si disponible
         if self.data_file.endswith('.gz'):
             paths_to_try.append(self.data_file[:-3])
         else:
@@ -105,7 +94,6 @@ class LearningManager:
                 else:
                     with open(path, 'r', encoding='utf-8') as f:
                         raw = f.read().strip()
-                    # Protection contre du code collé après le JSON
                     brace_end = raw.rfind('}')
                     if brace_end == -1:
                         raise ValueError("Pas de JSON valide")
@@ -147,7 +135,6 @@ class LearningManager:
             'draws': self.draws,
             'last_updated': datetime.now().isoformat(),
         }
-        # Sauvegarde atomique : écrire dans tmp puis renommer
         tmp_path = self.data_file + '.tmp'
         try:
             if self.data_file.endswith('.gz'):
@@ -166,9 +153,6 @@ class LearningManager:
             except Exception:
                 pass
 
-    # ------------------------------------------------------------------
-    # Interface jeu
-    # ------------------------------------------------------------------
     def start_new_game(self):
         self.current_game_moves = []
 
@@ -179,14 +163,8 @@ class LearningManager:
         self.current_game_moves.append((zobrist_key, board.san(move), float(score)))
 
     def end_game(self, result: str, final_board: chess.Board, color: bool = chess.WHITE):
-        """
-        Met à jour l'apprentissage.
-        color : chess.WHITE si cette IA joue les blancs, chess.BLACK si elle joue les noirs.
-        Les stats W/D/L sont du point de vue de la couleur de l'IA.
-        """
         self.games_played += 1
 
-        # Résultat du point de vue de CETTE IA selon sa couleur
         if result == "1-0":
             final_reward = 1000.0 if color == chess.WHITE else -1000.0
             if color == chess.WHITE:
@@ -203,13 +181,11 @@ class LearningManager:
             final_reward = 0.0
             self.draws += 1
         else:
-            # Partie interrompue (MAX_MOVES atteint, résultat "*") :
-            # ne pas compter comme nulle, utiliser le matériel pour estimer
             mat = self._material_eval(final_board)
             if color == chess.BLACK:
-                mat = -mat  # inverser pour les noirs
+                mat = -mat
             if mat > 150:
-                final_reward = 300.0   # légèrement positif
+                final_reward = 300.0
                 self.wins += 1
             elif mat < -150:
                 final_reward = -300.0
@@ -218,19 +194,16 @@ class LearningManager:
                 final_reward = 0.0
                 self.draws += 1
 
-        # Reward shaping : signal intermédiaire basé sur le matériel final
         mat = self._material_eval(final_board)
         shaped_reward = final_reward + mat * 0.1
 
         self._backpropagate(shaped_reward)
 
-        # Décroissance de l'exploration
         self.exploration_rate = max(
             self.EXPLORE_MIN,
             self.exploration_rate * self.EXPLORE_DECAY
         )
 
-        # BUG FIX: sauvegarder après CHAQUE partie (plus de condition % N)
         self._save()
 
     def _material_eval(self, board: chess.Board) -> float:
@@ -248,9 +221,6 @@ class LearningManager:
             old = self.position_values.get(zkey, base_score)
             self.position_values[zkey] = old + self.LR * (discounted - old)
 
-    # ------------------------------------------------------------------
-    # Utilisation pendant la recherche
-    # ------------------------------------------------------------------
     def get_position_value_with_learning(self, board: chess.Board, base_score: float,
                                           zobrist_key: Optional[int] = None) -> float:
         if zobrist_key is None:
@@ -277,5 +247,4 @@ class LearningManager:
         }
 
     def force_save(self):
-        """Forcer une sauvegarde immédiate (appeler à la fermeture)."""
         self._save()

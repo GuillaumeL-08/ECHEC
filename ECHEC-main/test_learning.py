@@ -1,23 +1,12 @@
-#!/usr/bin/env python3
-"""
-test_learning.py — Script d'entraînement optimisé pour 10h.
-Lance des parties IA vs IA en boucle avec stats de progression.
-"""
-
 from chess import Board, WHITE, BLACK
 from ia_tree import TreeIA
 import time
 import signal
 import sys
 
-# Durée d'entraînement cible (secondes). Mettre 36000 pour 10h.
 TRAINING_DURATION = 36000
-# Profondeur de recherche pendant l'entraînement
 TRAIN_DEPTH = 3
-# Limite de temps par coup pendant l'entraînement (secondes)
 TIME_PER_MOVE = 1.0
-# Nombre max de coups par partie — assez grand pour que la majorité des parties finissent
-# naturellement. 200 évite les boucles infinies sans forcer trop de fausses nulles.
 MAX_MOVES = 200
 
 ia_white = None
@@ -43,7 +32,6 @@ def print_stats(ia_w, ia_b, game_num, elapsed, total_duration, results_log):
     h, m = divmod(int(remaining), 3600)
     m, s = divmod(m, 60)
 
-    # Compter les vrais résultats du log (pas les stats internes faussées)
     white_wins  = results_log.count("1-0")
     black_wins  = results_log.count("0-1")
     draws       = results_log.count("1/2-1/2")
@@ -71,7 +59,6 @@ def train():
     ia_white = TreeIA(depth=TRAIN_DEPTH, enable_learning=True, time_limit=TIME_PER_MOVE)
     ia_black = TreeIA(depth=TRAIN_DEPTH, enable_learning=True, time_limit=TIME_PER_MOVE)
 
-    # Fichiers séparés pour chaque couleur
     if ia_white.learning_manager:
         ia_white.learning_manager.data_file = "ia_white_data.json.gz"
         ia_white.learning_manager._load()
@@ -81,7 +68,7 @@ def train():
 
     start_time = time.time()
     game_num = 0
-    results_log = []  # log des vrais résultats pour les stats affichées
+    results_log = []
 
     while True:
         elapsed = time.time() - start_time
@@ -92,8 +79,6 @@ def train():
         board = Board()
         move_count = 0
 
-        # Toutes les 5 parties : forcer une profondeur 1 pour des parties très variées
-        # Ça explore des positions que depth=3 ne verrait jamais
         shallow_game = (game_num % 5 == 0)
         if shallow_game:
             ia_white.depth = 1
@@ -117,7 +102,6 @@ def train():
         result = board.result()
         results_log.append(result)
 
-        # Backpropagation, sauvegarde ET reset pour la prochaine partie
         ia_white.end_game(result, board, color=WHITE)
         ia_black.end_game(result, board, color=BLACK)
 

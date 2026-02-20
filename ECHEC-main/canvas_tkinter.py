@@ -1,71 +1,18 @@
 from tkinter import *
 from tkinter import ttk
 from PIL import Image, ImageTk
-from random import randint
-from chess import * # type: ignore
-from time import sleep
+from chess import *
 from human_controller import HumanController
+from evaluator import Evaluator
 import os
 
-# global vars
 board_width = 1024
 board_height = 1024
 
 
 class Chess_UI:
-    """
-    Gère l'affichage du plateau d'échec et  gère la board de la librairie Chess
-    ...
-    Attributs 
-    ----------
-    root : Tk
-        L'interface Tkinter
-    board : Board
-        Le plateau d'échec
-    Joueur_Blanc : À definir
-        L'IA du Joueur Blanc
-    Jouer_Noir : À définir
-        L'IA du Joueur Noir
-    history_white & history_black : list
-        Donne la liste des coups joué par les blancs et les noirs
-
-    Méthodes
-    ----------
-    get_x_from_col(self, col) -> float
-        Donne la valeur des coordonnées pour les colonnes
-    get_y_from_row(self, row) -> float
-        Donne la valuer des coordonnées pour les lignes
-    display_piece(self, piece, col, row) -> None
-        Affiche les pièces sur l'échiquier et les stockes dans une liste
-    update_board() -> None
-        Met à jour le plateau et met en place le coup suivant
-    update_history_white(self, entry) -> None
-        Met à jour la liste des coups des blancs
-    update_history_black(self, entry) -> None
-        Met à jour la liste des coups des noirs
-    jouer(self) -> int
-        Permet aux joueurs de jouer leur coups chacun leur tour
-    """
-    def __init__(self, root:Tk, board:Board, J_Blanc, J_Noir):  
-        """
-        Construit le plateau, définit les images des pièces. 
-        Initialise l'historique des coups
-        Lance la plateau
-        ...
-        Attributs 
-        ----------
-        root : Tk
-            L'interface Tkinter
-        board : Board
-            Le plateau d'échec
-        Joueur_Blanc : À definir
-            L'IA du Joueur Blanc
-        Jouer_Noir : À définir
-            L'IA du Joueur Noir
-        """
-        # base directory for asset files (images) is the same folder as this module
+    def __init__(self, root:Tk, board:Board, J_Blanc, J_Noir):
         base_dir = os.path.join(os.path.dirname(__file__), 'img')
-        #Définition des images pour les pièces
         self.img_dict = {
             'p': ImageTk.PhotoImage(Image.open(os.path.join(base_dir, 'pion_noir.png')).resize((100, 100))),
             'b': ImageTk.PhotoImage(Image.open(os.path.join(base_dir, 'fou_noir.png')).resize((100, 100))),
@@ -84,19 +31,36 @@ class Chess_UI:
         self.board = board
         self.Joueur_Blanc = J_Blanc
         self.Joueur_Noir = J_Noir
-        # True si le camp est contrôlé par un humain (J_Blanc ou J_Noir == None)
         self.human_white = (J_Blanc is None)
         self.human_black = (J_Noir is None)
         self.mainframe = ttk.Frame(self.root)
         self.mainframe.grid()
-        #Met les numéros et les lettres autour de l'échiquier 
+
+        # evaluator used to compute a numeric score of the current position
+        self.evaluator = Evaluator(lambda: self.board)
+
+        # evaluation display variables/widgets
+        self.eval_var = DoubleVar(value=0)
+        # vertical progress bar showing advantage:
+        # left (0) = -max_score, right (max) = +max_score
+        self.eval_bar = ttk.Progressbar(
+            self.mainframe,
+            orient='vertical',
+            length=board_height,
+            mode='determinate',
+            maximum=2000,
+            variable=self.eval_var
+        )
+        self.eval_bar.grid(row=1, column=11, rowspan=8, sticky=(N, S))
+        self.eval_label = Label(self.mainframe, text="Eval: 0", bg='white')
+        self.eval_label.grid(row=0, column=11)
+
         for i in range(8):
             label = Label(self.mainframe, text=chr(ord('A') + i), bg='white')
             label.grid(row=0, column=i + 1, sticky=(S))
             label = Label(self.mainframe, text=chr(ord('1') + i), bg='white')
             label.grid(row=i + 1, column=0, sticky=(E))
 
-        #Affiche la liste déroulante de l'historique des mouvements
         self.history_white = []
         self.history_black = []
         self.history_white_var = StringVar(value=self.history_white)
@@ -112,10 +76,9 @@ class Chess_UI:
         self.bg_img = Image.open(os.path.join(base_dir, 'plateau.png'))
         self.bg_photo = ImageTk.PhotoImage(self.bg_img)
         self.canvas.create_image(board_width / 2, board_height / 2, image=self.bg_photo)
-        
+
         self.pieces_list = []
 
-        # Contrôleur pour les interactions humaines (clics)
         self.human_controller = HumanController(
             board=self.board,
             canvas=self.canvas,
@@ -125,48 +88,28 @@ class Chess_UI:
             update_board_cb=self.update_board,
         )
 
-        # On permet au HumanController de déclencher le tour IA après un coup humain
-        # en lui donnant une référence vers self.jouer via son callback interne.
         self.human_controller._jouer_after_human = self.jouer
 
-        self.update_board() #Affichage sur l'interface
-        
+        self.update_board()
 
-    # takes a col number as parameter (between 0 and 7). Returns the matching x coordinate (center of the cell) in the canvas
     def get_x_from_col(self, col:int) -> float:
-        """
-        prend un numéro de colonne comme paramètre (entre 0 et 7). 
-        Renvoie la coordonnée x correspondante (centre de la cellule) dans le canevas.
-        """
         if col < 0 or col > 7:
             raise ValueError(col)
         return board_width / 8 * col + board_width / 16
 
     def get_y_from_row(self, row:int) -> float:
-        """
-        prend un numéro de ligne comme paramètre (entre 0 et 7). 
-        Renvoie la coordonnée x correspondante (centre de la cellule) dans le canevas.
-        """
         if row < 0 or row > 7:
             raise ValueError(row)
         return board_height / 8 * row + board_height / 16
-    
+
     def display_piece(self, piece:Piece, col:int, row:int) -> None:
-        """
-        Affiche une pièce
-        """
         self.pieces_list.append(self.canvas.create_image(self.get_x_from_col(col), self.get_y_from_row(row), image=self.img_dict[piece]))
 
     def update_board(self):
-        """
-        Mise à jour du plateau
-        """
-        #Suppression des pièces afin de les remettre à jour
         for piece in self.pieces_list:
-            self.canvas.delete(piece)   
+            self.canvas.delete(piece)
         row = 0
         col = 0
-        #Replacement des pièces
         for piece in self.board.board_fen():
             if '1' <= piece <= '8':
                 col += ord(piece) - ord('0')
@@ -177,13 +120,22 @@ class Chess_UI:
                 self.display_piece(piece, col, row)
                 col += 1
 
-        #Mise à jour de l'historique
         if self.board.turn == WHITE:
             self.history_white_listbox.update()
         else:
             self.history_black_listbox.update()
 
-        # Si ce n'est pas à un humain de jouer, on laisse le contrôleur planifier le tour IA.
+        # refresh evaluation display
+        try:
+            score = self.evaluator.evaluate()
+        except Exception:
+            score = 0
+        # clamp to [-1000,1000] so bar doesn't overflow
+        clamped = max(-1000, min(1000, score))
+        # progress bar range is 0..2000, map -1000->0 and +1000->2000
+        self.eval_var.set(clamped + 1000)
+        self.eval_label.config(text=f"Eval: {score}")
+
         self.human_controller.maybe_schedule_ai_turn(self.jouer)
 
     def update_history_white(self, entry):
@@ -195,8 +147,6 @@ class Chess_UI:
         self.history_black_var.set(self.history_black)
 
     def jouer(self):
-
-        #Vérification de la victoire
         if self.board.is_game_over():
             res = self.board.result()
             if res == "1-0":
@@ -206,13 +156,11 @@ class Chess_UI:
             else:
                 res = "Egalité !"
 
-            # Notifier les IAs que la partie est terminée pour l'apprentissage
             if hasattr(self.Joueur_Blanc, 'end_game'):
                 self.Joueur_Blanc.end_game(self.board.result(), self.board, color=WHITE)
             if hasattr(self.Joueur_Noir, 'end_game'):
                 self.Joueur_Noir.end_game(self.board.result(), self.board, color=BLACK)
 
-            # Afficher les statistiques d'apprentissage si disponibles
             stats_text = ""
             if hasattr(self.Joueur_Blanc, 'get_learning_stats'):
                 stats = self.Joueur_Blanc.get_learning_stats()
@@ -233,20 +181,14 @@ class Chess_UI:
                     font=("Arial", 12), fill="blue"
                 )
             return 0
-        
 
-        #Tour d'un des joueurs (uniquement IA côté Chess_UI)
         if self.board.turn == WHITE:
-            # Tour des blancs
             if self.human_white:
-                # C'est un humain : Chess_UI ne joue pas, HumanController s'en charge
                 return
             self.board.push_san(self.Joueur_Blanc.coup(self.board))
         else:
-            # Tour des noirs
             if self.human_black:
-                # C'est un humain : Chess_UI ne joue pas, HumanController s'en charge
                 return
             self.board.push_san(self.Joueur_Noir.coup(self.board))
-            
-        self.update_board() #Mise à jour de l'échiquier
+
+        self.update_board()
