@@ -4,8 +4,8 @@ import time
 import signal
 import sys
 
-TRAINING_DURATION = 36000 # 10 heures
-TRAIN_DEPTH = 3
+TRAINING_DURATION = 36000 
+TRAIN_DEPTH = 4
 TIME_PER_MOVE = 1.0
 MAX_MOVES = 200
 
