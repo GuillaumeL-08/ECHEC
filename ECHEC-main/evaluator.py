@@ -410,7 +410,6 @@ class Evaluator:
             kf = king_sq % 8
             kr = king_sq // 8
             val = 0
-            # Regarder les cases devant le roi (côté promotion)
             front_rank = kr + 1 if color == WHITE else kr - 1
             if 0 <= front_rank <= 7:
                 for df in (-1, 0, 1):
@@ -419,8 +418,7 @@ class Evaluator:
                         sq = front_rank * 8 + f
                         piece = b.piece_at(sq)
                         if piece and piece.piece_type == PAWN and piece.color == color:
-                            val += 20   # pion immédiatement devant
-                # Deuxième rang du bouclier
+                            val += 20  
                 front_rank2 = kr + 2 if color == WHITE else kr - 2
                 if 0 <= front_rank2 <= 7:
                     for df in (-1, 0, 1):
@@ -429,7 +427,7 @@ class Evaluator:
                             sq = front_rank2 * 8 + f
                             piece = b.piece_at(sq)
                             if piece and piece.piece_type == PAWN and piece.color == color:
-                                val += 10   # pion au deuxième rang
+                                val += 10 
             return val * sign
 
         score += shield(wk, WHITE, +1)
