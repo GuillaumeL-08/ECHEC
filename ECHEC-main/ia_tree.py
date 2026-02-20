@@ -9,6 +9,8 @@ from evaluator import Evaluator
 
 
 class BoundedTT:
+    """Table de transposition à taille limitée avec politique LRU."""
+
     EXACT, LOWER, UPPER = 0, 1, 2
 
     def __init__(self, max_size=500_000):
@@ -16,12 +18,14 @@ class BoundedTT:
         self._data = OrderedDict()
 
     def get(self, key):
+        """Récupère une entrée de la table de transposition. Si l'entrée existe, elle est marquée comme récemment utilisée."""
         if key in self._data:
             self._data.move_to_end(key)
             return self._data[key]
         return None
 
     def put(self, key, score, flag, depth, move):
+        """Enregistre une entrée dans la table de transposition. Si la table dépasse max_size, l'entrée la moins récemment utilisée est supprimée."""
         if key in self._data:
             self._data.move_to_end(key)
         else:
@@ -34,6 +38,8 @@ class BoundedTT:
 
 
 class TreeIA:
+    """IA utilisant une arbre de recherche alpha-beta."""
+
     MAX_DEPTH = 10
     TIME_LIMIT = 2.0
     TT_SIZE = 400_000
@@ -41,16 +47,22 @@ class TreeIA:
     def __init__(self, depth=4, enable_learning=True, time_limit=2.0):
         self.depth = depth
         self.time_limit = time_limit
-        self.board: Optional[Board] = None
+        self.board = None
         self.tt = BoundedTT(self.TT_SIZE)
-        self.killer_moves = [[None, None] for _ in range(self.MAX_DEPTH + 2)]
+        self.killer_moves = [
+            [None, None] for _ in range(self.MAX_DEPTH + 2)
+        ]  # killer moves pour chaque niveau de profondeur
         self.history = {}
         self.enable_learning = enable_learning
         self._start_time = 0.0
-        self._nodes = 0
-        self._eval_noise = 0
-        self._eval_depth = 0
-        self._piece_move_count = {}
+        self._nodes = 0  # compteur de nœuds pour contrôle du temps
+        self._eval_noise = (
+            0  # bruit ajouté à l'évaluation pour encourager l'exploration
+        )
+        self._eval_depth = 0  # profondeur de l'évaluation
+        self._piece_move_count = (
+            {}
+        )  # compteur de déplacements pour chaque case (pour suivre les pièces mineures)
 
         if enable_learning:
             self.learning_manager = LearningManager()
@@ -75,6 +87,7 @@ class TreeIA:
         return self._evaluator._material_score()
 
     def _move_score(self, move: Move, depth: int) -> int:
+        """Calcule un score heuristique pour un coup donné, utilisé pour ordonner les coups dans la recherche alpha-beta."""
         score = 0
         b = self.board
 
@@ -85,8 +98,9 @@ class TreeIA:
             victim = b.piece_at(move.to_square)
             aggressor = b.piece_at(move.from_square)
             if victim and aggressor:
-                score += 10 * PIECE_VALUES.get(victim.piece_type, 0) \
-                            - PIECE_VALUES.get(aggressor.piece_type, 0)
+                score += 10 * PIECE_VALUES.get(victim.piece_type, 0) - PIECE_VALUES.get(
+                    aggressor.piece_type, 0
+                )
             else:
                 score += 500
 
@@ -105,11 +119,13 @@ class TreeIA:
         return score
 
     def _order_moves(self, moves, depth: int):
+        """Ordonne les coups en fonction de leur score heuristique pour améliorer l'efficacité de la recherche alpha-beta."""
         scored = [(self._move_score(m, depth), m) for m in moves]
         scored.sort(key=lambda x: x[0], reverse=True)
         return [m for _, m in scored]
 
     def _update_killer(self, move: Move, depth: int):
+        """Met à jour la table des killer moves si le coup est un coup de coupure non-capturant."""
         ply = self.depth - depth
         if 0 <= ply < len(self.killer_moves):
             if move != self.killer_moves[ply][0]:
@@ -117,12 +133,14 @@ class TreeIA:
                 self.killer_moves[ply][0] = move
 
     def _update_history(self, move: Move, depth: int):
+        """Met à jour la table de history heuristic pour le coup donné."""
         key = (move.from_square, move.to_square)
         self.history[key] = self.history.get(key, 0) + depth * depth
         if len(self.history) > 8192:
             self.history = {k: v // 2 for k, v in self.history.items()}
 
     def quiescence(self, alpha: int, beta: int, depth: int = 0) -> int:
+        """Recherche de quiescence pour évaluer les positions instables (captures) de manière plus précise."""
         self._nodes += 1
         self._eval_depth = depth
         stand_pat = self.evaluate()
@@ -137,7 +155,10 @@ class TreeIA:
 
         for move in captures:
             victim = self.board.piece_at(move.to_square)
-            if victim and stand_pat + PIECE_VALUES.get(victim.piece_type, 0) + 200 < alpha:
+            if (
+                victim
+                and stand_pat + PIECE_VALUES.get(victim.piece_type, 0) + 200 < alpha
+            ):
                 continue
 
             self.board.push(move)
@@ -152,6 +173,7 @@ class TreeIA:
         return alpha
 
     def minimax(self, depth: int, alpha: int, beta: int, maximizing: bool) -> tuple:
+        """Recherche minimax avec élagage alpha-beta, table de transposition, killer moves et history heuristic."""
         self._nodes += 1
 
         if self._nodes % 2048 == 0 and time.time() - self._start_time > self.time_limit:
@@ -186,12 +208,16 @@ class TreeIA:
             return score, None
 
         R = 2
-        if (depth >= R + 1
-                and not b.is_check()
-                and not self._is_endgame()
-                and abs(alpha) < 90000):
+        if (
+            depth >= R + 1
+            and not b.is_check()
+            and not self._is_endgame()
+            and abs(alpha) < 90000
+        ):
             b.push(Move.null())
-            null_score, _ = self.minimax(depth - R - 1, -beta, -beta + 1, not maximizing)
+            null_score, _ = self.minimax(
+                depth - R - 1, -beta, -beta + 1, not maximizing
+            )
             b.pop()
             if null_score is not None and -null_score >= beta:
                 return beta, None
@@ -207,7 +233,7 @@ class TreeIA:
 
         best_move = None
         original_alpha = alpha
-        best_score = -10**9
+        best_score = -(10**9)
 
         for i, move in enumerate(moves):
             is_capture = b.is_capture(move)
@@ -235,13 +261,19 @@ class TreeIA:
                     self._update_history(move, depth)
                 break
 
-        flag = (BoundedTT.EXACT if original_alpha < best_score < beta
-                else BoundedTT.LOWER if best_score >= beta
-                else BoundedTT.UPPER)
+        flag = (
+            BoundedTT.EXACT
+            if original_alpha < best_score < beta
+            else BoundedTT.LOWER if best_score >= beta else BoundedTT.UPPER
+        )
         self.tt.put(zkey, best_score, flag, depth, best_move)
         return best_score, best_move
 
     def _is_repetition_move(self, move: Move) -> bool:
+        """
+        Détermine si un coup est une repetition. Utile pour éviter de jouer des coups qui mènent à des
+        positions répétées et ainsi améliorer la diversité des parties jouées par l'IA.
+        """
         if self.board is None:
             return False
         self.board.push(move)
@@ -250,6 +282,10 @@ class TreeIA:
         return is_rep
 
     def iterative_deepening(self) -> Move:
+        """
+        Effectue une recherche en profondeur itérative pour trouver le meilleur coup dans le temps imparti.
+        La recherche s'arrête lorsque le temps est presque écoulé ou que la profondeur maximale est atteinte.
+        """
         self._start_time = time.time()
         self._nodes = 0
         maximizing = self.board.turn == WHITE
@@ -266,10 +302,10 @@ class TreeIA:
 
         for current_depth in range(1, self.MAX_DEPTH + 1):
             if current_depth <= 2:
-                alpha, beta = -10**9, 10**9
+                alpha, beta = -(10**9), 10**9
             else:
                 alpha = prev_score - ASPIRATION_DELTA
-                beta  = prev_score + ASPIRATION_DELTA
+                beta = prev_score + ASPIRATION_DELTA
 
             while True:
                 score, move = self.minimax(current_depth, alpha, beta, maximizing)
@@ -296,6 +332,11 @@ class TreeIA:
         return best_move
 
     def coup(self, board: Board) -> str:
+        """
+        Retourne le meilleur coup trouvé par l'IA au format SAN pour python-chess.
+        Si l'apprentissage est activé, il peut choisir de jouer un coup aléatoire
+        pour encourager l'exploration des positions.
+        """
         self.board = board
         self.killer_moves = [[None, None] for _ in range(self.MAX_DEPTH + 2)]
 
@@ -325,6 +366,11 @@ class TreeIA:
         return board.san(move)
 
     def _track_piece_move(self, board: Board, move: Move):
+        """
+        Suit les déplacements des pièces mineures pour ajuster dynamiquement l'évaluation
+        et encourager l'IA à développer ses pièces plutôt que de les laisser immobiles
+        ou de les déplacer de manière répétitive.
+        """
         if board.ply() > 40:
             return
         piece = board.piece_at(move.from_square)
@@ -338,10 +384,13 @@ class TreeIA:
                 )
 
     def end_game(self, result: str, board=None, color=None):
+        """
+        Termine une partie et lance une nouvelle partie si l'apprentissage est activé.
+        """
         if self.learning_manager:
-            final_board = board or getattr(self, 'board', None) or Board()
+            final_board = board or getattr(self, "board", None) or Board()
             if color is None:
-                if final_board is not None and hasattr(final_board, 'turn'):
+                if final_board is not None and hasattr(final_board, "turn"):
                     color = not final_board.turn
                 else:
                     color = WHITE
@@ -352,12 +401,20 @@ class TreeIA:
         self._piece_move_count = {}
 
     def _reset_for_new_game(self):
+        """
+        Reinitialise les variables de l'IA pour une nouvelle partie.
+        """
         self.tt.clear()
         self.history = {}
         self._piece_move_count = {}
         self.killer_moves = [[None, None] for _ in range(self.MAX_DEPTH + 2)]
 
     def get_learning_stats(self):
+        """
+        Retourne les statistiques d'apprentissage de l'IA, telles que le nombre de parties jouées,
+        le taux de victoire et le nombre de positions apprises. U
+        tile pour suivre les progrès de l'IA au fil du temps.
+        """
         if self.learning_manager:
             return self.learning_manager.get_learning_stats()
         return None

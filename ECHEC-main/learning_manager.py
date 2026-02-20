@@ -9,17 +9,20 @@ import chess
 
 
 class BoundedDict:
+    """Un dictionnaire à capacité limitée qui supprime les éléments les plus anciens lorsque la limite est dépassée."""
     def __init__(self, max_size: int = 200_000):
         self.max_size = max_size
         self._d = OrderedDict()
 
     def get(self, key, default=None):
+        """Récupère la valeur associée à la clé, ou retourne default si la clé n'existe pas. Si la clé existe, elle est considérée comme récemment utilisée."""
         if key in self._d:
             self._d.move_to_end(key)
             return self._d[key]
         return default
 
     def __setitem__(self, key, value):
+        """Enregistre une entrée dans le dictionnaire. Si la table depasse max_size, l'entrée la moins récemment utilisée est supprimée."""
         if key in self._d:
             self._d.move_to_end(key)
         else:
@@ -28,15 +31,18 @@ class BoundedDict:
         self._d[key] = value
 
     def __contains__(self, key):
+        """Vérifie si une clé est présente dans le dictionnaire."""
         return key in self._d
 
     def __len__(self):
         return len(self._d)
 
     def items(self):
+        """Retourne une vue des éléments du dictionnaire sous forme de paires (clé, valeur)."""
         return self._d.items()
 
     def to_dict(self) -> dict:
+        
         return dict(self._d)
 
     @classmethod
@@ -48,6 +54,7 @@ class BoundedDict:
 
 
 class LearningManager:
+    """Gère l'apprentissage de l'IA en stockant les évaluations des positions et en les mettant à jour après chaque partie."""
     MAX_POSITIONS = 200_000
     LR = 0.15
     GAMMA = 0.92
@@ -56,6 +63,10 @@ class LearningManager:
     EXPLORE_DECAY = 0.995
 
     def __init__(self, data_file: str = "ia_learning_data.json"):
+        """Initialise le gestionnaire d'apprentissage. 
+        Si un fichier de données existe, il est chargé pour restaurer les évaluations précédentes et les statistiques de jeu.
+        Sinon, un nouvel ensemble de données est créé.
+        """
         if data_file.endswith('.gz'):
             self.data_file = data_file
         elif os.path.exists(data_file + '.gz'):
@@ -74,6 +85,7 @@ class LearningManager:
         self._load()
 
     def _load(self):
+        """Charge les données d'apprentissage à partir du fichier spécifié. Si le fichier n'existe pas ou est corrompu, les données sont réinitialisées."""
         paths_to_try = [self.data_file]
         if self.data_file.endswith('.gz'):
             paths_to_try.append(self.data_file[:-3])
@@ -127,6 +139,11 @@ class LearningManager:
         print("[Learning] Démarrage à zéro.")
 
     def _save(self):
+        """
+        Sauvegarde les données d'apprentissage dans le fichier spécifié. 
+        Les données sont écrites dans un fichier temporaire avant d'être déplacées 
+        pour éviter la corruption en cas d'erreur pendant l'écriture.
+        """
         data = {
             'position_values': {str(k): v for k, v in self.position_values.items()},
             'games_played': self.games_played,
@@ -158,11 +175,17 @@ class LearningManager:
 
     def record_move(self, board: chess.Board, move: chess.Move, score: float,
                     zobrist_key: Optional[int] = None):
+        """Enregistre un coup joué pendant la partie, en associant une évaluation de la position avant le coup."""
         if zobrist_key is None:
             zobrist_key = hash(board.fen()) & 0xFFFFFFFFFFFFFFFF
         self.current_game_moves.append((zobrist_key, board.san(move), float(score)))
 
     def end_game(self, result: str, final_board: chess.Board, color: bool = chess.WHITE):
+        """
+        Met à jour les évaluations des positions jouées pendant
+        la partie en fonction du résultat final, et ajuste 
+        les statistiques de jeu et le taux d'exploration en conséquence.
+        """
         self.games_played += 1
 
         if result == "1-0":
@@ -207,6 +230,7 @@ class LearningManager:
         self._save()
 
     def _material_eval(self, board: chess.Board) -> float:
+        """Calcule une évaluation matérielle simple de la position, en accordant plus de poids à ce facteur en début de partie."""
         VALS = {chess.PAWN: 100, chess.KNIGHT: 320, chess.BISHOP: 330,
                 chess.ROOK: 500, chess.QUEEN: 900}
         score = 0.0
@@ -216,6 +240,10 @@ class LearningManager:
         return score
 
     def _backpropagate(self, final_reward: float):
+        """
+        Met à jour les évaluations des positions jouées pendant la partie en utilisant 
+        la récompense finale et un facteur de discounting pour les coups plus anciens.
+        """
         for i, (zkey, _, base_score) in enumerate(reversed(self.current_game_moves)):
             discounted = final_reward * (self.GAMMA ** i)
             old = self.position_values.get(zkey, base_score)
@@ -223,6 +251,10 @@ class LearningManager:
 
     def get_position_value_with_learning(self, board: chess.Board, base_score: float,
                                           zobrist_key: Optional[int] = None) -> float:
+        """
+        Retourne une évaluation de la position qui combine l'évaluation de base avec les connaissances apprises,
+        en accordant plus de poids à ces dernières à mesure que plus de parties sont jouées.
+        """
         if zobrist_key is None:
             zobrist_key = hash(board.fen()) & 0xFFFFFFFFFFFFFFFF
         learned = self.position_values.get(zobrist_key)
@@ -235,6 +267,7 @@ class LearningManager:
         return random.random() < self.exploration_rate
 
     def get_learning_stats(self) -> dict:
+        """Retourne des statistiques sur les apprentissages effectués."""
         total = max(1, self.games_played)
         return {
             'games_played': self.games_played,

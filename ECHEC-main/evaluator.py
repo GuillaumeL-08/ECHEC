@@ -13,6 +13,11 @@ from pst_tables import (
 
 
 class Evaluator:
+    """
+    Classe d'évaluation de position pour l'IA. Fournit une évaluation numérique 
+    de la position actuelle du plateau, positive 
+    si avantage pour les blancs, négative si avantage pour les noirs.
+    """
     def __init__(self, get_board, get_eval_noise=None, get_eval_depth=None, learning_manager=None):
         self._get_board = get_board
         self._get_eval_noise = get_eval_noise or (lambda: 0)
@@ -24,6 +29,7 @@ class Evaluator:
         return self._get_board()
 
     def _material_score(self) -> int:
+        """Calcule une évaluation de base basée sur le matériel (valeur des pièces)."""
         score = 0
         for pt in (PAWN, KNIGHT, BISHOP, ROOK, QUEEN):
             score += PIECE_VALUES[pt] * (
@@ -32,21 +38,28 @@ class Evaluator:
         return score
 
     def _is_endgame(self) -> bool:
+        """Détermine si la position est une finale, ce qui affecte l'évaluation des pièces."""
         queens = len(self.board.pieces(QUEEN, WHITE)) + len(self.board.pieces(QUEEN, BLACK))
         minors_w = len(self.board.pieces(KNIGHT, WHITE)) + len(self.board.pieces(BISHOP, WHITE))
         minors_b = len(self.board.pieces(KNIGHT, BLACK)) + len(self.board.pieces(BISHOP, BLACK))
         return queens == 0 or (queens == 2 and minors_w <= 1 and minors_b <= 1)
 
     def _king_distance(self, sq1: int, sq2: int) -> int:
+        """Calcule la distance de Chebyshev entre deux cases, utilisée pour évaluer les positions de roi en finale."""
         r1, f1 = sq1 // 8, sq1 % 8
         r2, f2 = sq2 // 8, sq2 % 8
         return max(abs(r1 - r2), abs(f1 - f2))
 
     def _corner_distance(self, sq: int) -> int:
+        """Calcule la distance de Chebyshev d'une case à la plus proche des quatre cases de coin, utilisée pour évaluer les positions de roi en finale."""
         r, f = sq // 8, sq % 8
         return min(r, 7 - r) + min(f, 7 - f)
 
     def _is_winning_endgame(self, mat: int) -> int:
+        """
+        Détermine si la position est une finale gagnante pour l'un des camps, en se basant sur une évaluation matérielle grossière.
+        Retourne 1 si avantage blanc, -1 si avantage noir, 0 sinon.
+        """
         if mat >= 500:
             return 1
         if mat <= -500:
@@ -54,6 +67,7 @@ class Evaluator:
         return 0
 
     def _castling_score(self, wk, bk) -> int:
+        """Évalue la position des rois par rapport au droit de roque et à la sécurité du roi."""
         score = 0
         b = self.board
 
@@ -83,6 +97,7 @@ class Evaluator:
         return score
 
     def _center_control_score(self) -> int:
+        """Évalue le contrôle du centre, en accordant plus de poids au contrôle des cases centrales strictes (d4, d5, e4, e5) en début de partie."""
         b = self.board
         ply = b.ply()
 
@@ -119,6 +134,7 @@ class Evaluator:
         return int(score * weight)
 
     def _development_score(self) -> int:
+        """Évalue le développement des pièces mineures en début de partie, en pénalisant les pièces qui n'ont pas encore bougé de leur position initiale."""
         b = self.board
         ply = b.ply()
 
@@ -150,6 +166,7 @@ class Evaluator:
             black_moves = [m for i, m in enumerate(moves) if i % 2 == 1]
 
             def double_move_penalty(camp_moves, undeveloped, sign):
+                """Pénalité pour les pièces mineures qui ont bougé mais sont retournées à leur position initiale, ce qui indique un développement inefficace."""
                 pen = 0
                 for j in range(1, len(camp_moves)):
                     prev, curr = camp_moves[j-1], camp_moves[j]
@@ -184,6 +201,7 @@ class Evaluator:
         return int(score * weight)
 
     def evaluate(self) -> int:
+        """Calcule une évaluation de la position actuelle du plateau, positive si avantage pour les blancs, négative si avantage pour les noirs."""
         b = self.board
         if b.is_checkmate():
             depth_bonus = self._get_eval_depth()
@@ -287,6 +305,7 @@ class Evaluator:
         return score if b.turn == WHITE else -score
 
     def _pawn_structure_fast(self) -> int:
+        """Évalue la structure des pions. Pénalise les pions doublés, isolés et arriérés, et récompense les pions passés."""
         score = 0
         wp = self.board.pieces(PAWN, WHITE)
         bp = self.board.pieces(PAWN, BLACK)
@@ -313,8 +332,6 @@ class Evaluator:
             f = sq % 8
             if not any(s // 8 > rank and s % 8 == f for s in bp):
                 score += 20 + rank * 8
-            # Pion arriéré blanc : ne peut plus être soutenu par un pion ami,
-            # et une case devant lui est contrôlée par un pion adverse
             support_files = {f - 1, f + 1} & w_files
             can_be_supported = any(
                 s % 8 in support_files and s // 8 <= rank for s in wp
@@ -333,7 +350,6 @@ class Evaluator:
             f = sq % 8
             if not any(s // 8 < rank and s % 8 == f for s in wp):
                 score -= 20 + (7 - rank) * 8
-            # Pion arriéré noir
             support_files = {f - 1, f + 1} & b_files
             can_be_supported = any(
                 s % 8 in support_files and s // 8 >= rank for s in bp
@@ -350,6 +366,7 @@ class Evaluator:
         return score
 
     def _open_files_score(self) -> int:
+        """Évalue les tours sur les colonnes ouvertes, en accordant plus de poids aux tours sur les colonnes ouvertes sans pions adverses en fin de partie."""
         b = self.board
         wp = b.pieces(PAWN, WHITE)
         bp = b.pieces(PAWN, BLACK)
@@ -360,9 +377,9 @@ class Evaluator:
         for sq in b.pieces(ROOK, WHITE):
             f = sq % 8
             if f not in w_files and f not in b_files:
-                score += 25   # colonne ouverte
+                score += 25   
             elif f not in w_files:
-                score += 12   # colonne semi-ouverte (sans pion blanc)
+                score += 12  
 
         for sq in b.pieces(ROOK, BLACK):
             f = sq % 8
@@ -374,6 +391,7 @@ class Evaluator:
         return score
 
     def _king_shield_score(self) -> int:
+        """Évalue la sécurité du roi en fonction de la présence de pions de bouclier devant lui, en accordant plus de poids à ces facteurs en début de partie."""
         b = self.board
         if self._is_endgame():
             return 0
@@ -383,6 +401,10 @@ class Evaluator:
         bk = b.king(BLACK)
 
         def shield(king_sq, color, sign):
+            """
+            Calcule une évaluation de la sécurité du roi basée sur la présence de pions de bouclier devant lui, 
+            en accordant plus de poids à ces facteurs en début de partie.
+            """
             if king_sq is None:
                 return 0
             kf = king_sq % 8
@@ -415,6 +437,7 @@ class Evaluator:
         return score
 
     def _mobility_score(self) -> int:
+        """Évalue la mobilité de chaque camp, en accordant plus de poids à ce facteur en milieu de partie."""
         b = self.board
         w_mob = sum(1 for _ in b.generate_pseudo_legal_moves(b.occupied_co[WHITE]))
         b_mob = sum(1 for _ in b.generate_pseudo_legal_moves(b.occupied_co[BLACK]))

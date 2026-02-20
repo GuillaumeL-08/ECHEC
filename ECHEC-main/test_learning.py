@@ -13,6 +13,7 @@ ia_white = None
 ia_black = None
 
 def signal_handler(sig, frame):
+    """Gère l'interruption du programme pour sauvegarder les données d'apprentissage avant de quitter."""
     print("\n\n=== Interruption détectée — sauvegarde en cours... ===")
     if ia_white and ia_white.learning_manager:
         ia_white.learning_manager.force_save()
@@ -25,6 +26,7 @@ signal.signal(signal.SIGINT, signal_handler)
 
 
 def print_stats(ia_w, ia_b, game_num, elapsed, total_duration, results_log):
+    """Affiche les statistiques d'entraînement après un certain nombre de parties, y compris les résultats réels et les performances des IA."""
     stats_w = ia_w.get_learning_stats()
     stats_b = ia_b.get_learning_stats()
     pct = elapsed / total_duration * 100
@@ -50,6 +52,7 @@ def print_stats(ia_w, ia_b, game_num, elapsed, total_duration, results_log):
 
 
 def train():
+    """Entraîne deux IA l'une contre l'autre pendant une durée définie, en jouant des parties complètes et en sauvegardant les données d'apprentissage à la fin ou en cas d'interruption."""
     global ia_white, ia_black
 
     print("=== Démarrage de l'entraînement ===")

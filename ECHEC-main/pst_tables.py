@@ -132,6 +132,7 @@ _ZOBRIST_EP = [_rng.getrandbits(64) for _ in range(8)]
 
 
 def zobrist_hash(board: Board) -> int:
+    """Calcule le hash Zobrist du plateau donné."""
     h = 0
     for sq in range(64):
         piece = board.piece_at(sq)

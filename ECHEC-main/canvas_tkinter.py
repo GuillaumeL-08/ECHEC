@@ -33,7 +33,18 @@ class Chess_UI:
         self.human_white = (J_Blanc is None)
         self.human_black = (J_Noir is None)
         self.mainframe = ttk.Frame(self.root)
-        self.mainframe.grid()
+        self.mainframe.grid(sticky=(N, S, E, W))
+
+        # enable the root window to expand and start maximized
+        self.root.columnconfigure(0, weight=1)
+        self.root.rowconfigure(0, weight=1)
+        self.root.state('zoomed')
+
+        # configure weights inside mainframe so canvas grows with window
+        for i in range(1, 9):
+            self.mainframe.rowconfigure(i, weight=1)
+        for j in range(1, 9):
+            self.mainframe.columnconfigure(j, weight=1)
 
 
         for i in range(8):
@@ -45,12 +56,12 @@ class Chess_UI:
         self.history_white = []
         self.history_black = []
         self.history_white_var = StringVar(value=self.history_white)
-        self.history_white_listbox = Listbox(self.mainframe, listvariable=self.history_white_var, bg="white", height=48)
-        self.history_white_listbox.grid(row=1, column=9, rowspan=8, sticky=(N))
+        self.history_white_listbox = Listbox(self.mainframe, listvariable=self.history_white_var, bg="white")
+        self.history_white_listbox.grid(row=1, column=9, rowspan=8, sticky=(N, S, E, W))
 
         self.history_black_var = StringVar(value=self.history_black)
-        self.history_black_listbox = Listbox(self.mainframe, listvariable=self.history_black_var, bg="white", height=48)
-        self.history_black_listbox.grid(row=1, column=10, rowspan=8, sticky=(N))
+        self.history_black_listbox = Listbox(self.mainframe, listvariable=self.history_black_var, bg="white")
+        self.history_black_listbox.grid(row=1, column=10, rowspan=8, sticky=(N, S, E, W))
 
         self.canvas = Canvas(self.mainframe, bg="black", width=board_width, height=board_height)
         self.canvas.grid(row=1, column=1, columnspan=8, rowspan=8)
@@ -109,6 +120,7 @@ class Chess_UI:
 
         self.human_controller.maybe_schedule_ai_turn(self.jouer)
 
+    # history updates now happen directly in jouer(), these helpers are no longer used
     def update_history_white(self, entry):
         self.history_white.append(entry)
         self.history_white_var.set(self.history_white)
@@ -156,10 +168,18 @@ class Chess_UI:
         if self.board.turn == WHITE:
             if self.human_white:
                 return
-            self.board.push_san(self.Joueur_Blanc.coup(self.board))
+            san = self.Joueur_Blanc.coup(self.board)
+            self.board.push_san(san)
+            # record white move with move number
+            num = self.board.fullmove_number
+            self.history_white.append(f"{num}. {san}")
+            self.history_white_var.set(self.history_white)
         else:
             if self.human_black:
                 return
-            self.board.push_san(self.Joueur_Noir.coup(self.board))
+            san = self.Joueur_Noir.coup(self.board)
+            self.board.push_san(san)
+            self.history_black.append(san)
+            self.history_black_var.set(self.history_black)
 
         self.update_board()
