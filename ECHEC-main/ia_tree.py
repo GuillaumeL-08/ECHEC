@@ -51,18 +51,18 @@ class TreeIA:
         self.tt = BoundedTT(self.TT_SIZE)
         self.killer_moves = [
             [None, None] for _ in range(self.MAX_DEPTH + 2)
-        ]  # killer moves pour chaque niveau de profondeur
+        ] 
         self.history = {}
         self.enable_learning = enable_learning
         self._start_time = 0.0
-        self._nodes = 0  # compteur de nœuds pour contrôle du temps
+        self._nodes = 0 
         self._eval_noise = (
-            0  # bruit ajouté à l'évaluation pour encourager l'exploration
+            0 
         )
-        self._eval_depth = 0  # profondeur de l'évaluation
+        self._eval_depth = 0 
         self._piece_move_count = (
             {}
-        )  # compteur de déplacements pour chaque case (pour suivre les pièces mineures)
+        ) 
 
         if enable_learning:
             self.learning_manager = LearningManager()
